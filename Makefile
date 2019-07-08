@@ -12,7 +12,7 @@ ifeq ($(UNAME_S),Linux)
 	MAKE=make
 else
 	INSTALL_GROUP=wheel
-	MAKE=gmake	
+	MAKE=gmake
 endif
 
 SERVER_INSTALLFILES= *.tcl
@@ -37,7 +37,8 @@ all:
 install: install-package
 install-branch: install-branch-package
 
-test-package:
+test-package: tests/all.tcl tests/*.test
+	@cd tests && tclsh all.tcl
 
 pkgIndex.tcl: $(shell find . -name '*.tcl' | grep -v pkgIndex.tcl)
 	echo "pkg_mkIndex ." | $(TCLSH)
@@ -64,4 +65,4 @@ clean:
 	rm -rf $(TARGET)
 
 clean-branch:
-	rm -rf $(BRANCHINSTALLDIR)	
+	rm -rf $(BRANCHINSTALLDIR)

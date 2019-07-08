@@ -1,0 +1,22 @@
+## \file hash.test
+
+package require tcltest
+namespace import ::tcltest::*
+
+# Module under test
+source ../hash.tcl
+
+proc test_hash {S h} {
+	test hash_S=h {
+		Test [::turtles::hash $S == $h]
+	} -body {
+		::turtles::hash $S
+	} -result $h
+}
+
+test_hash "" 0
+test_hash "a" 97
+test_hash "ab" 50855937
+test_hash "ba" 51380223
+
+cleanupTests
