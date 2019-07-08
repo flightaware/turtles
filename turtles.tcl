@@ -1,6 +1,6 @@
 #!/usr/bin/env tclsh
-package provide turtles 0.1
-package require Tcl     8.5
+package require Tcl              8.5
+package require turtles::hashing 0.1
 
 namespace eval ::turtles {
 	namespace export release_the_turtles on_proc_enter on_proc_define_add_trace
@@ -18,3 +18,5 @@ proc ::turtles::on_proc_define_add_trace {commandString code result op} {
 proc ::turtles::release_the_turtles {} {
 	trace add execution proc [list leave] ::turtles::on_proc_define_add_trace
 }
+
+package provide turtles          0.1
