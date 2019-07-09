@@ -4,7 +4,7 @@ package require tcltest
 namespace import ::tcltest::*
 
 # Module under test
-source ../hash.tcl
+source ../hashing.tcl
 
 proc test_hash {S h} {
 	test hash_S=h {
