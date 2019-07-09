@@ -13,14 +13,18 @@ namespace eval ::turtles {
 }
 
 ## The Rabin-Karp rolling hash implementation.
+#
 # All arguments except the input string have default values.
+# The multiplier \c a and modulus prime \c p are the 7th
+# and 8th Mersenne primes, respectively, by default.
+#
 # To maintain consistency, across calls within a single program
 # or across a broader multiple program context,
 # the a, p, and h values MUST be the same.
-# param[in] S the input string
-# param[in] a the multiplier (default = M_7 = 2^19-1)
-# param[in] p the modulus prime (default = M_8 = 2^31-1)
-# param[in] h_0 the initial hash value (default 0)
+# \param[in] S the input string
+# \param[in] a the multiplier (default = M_7 = 2^19-1)
+# \param[in] p the modulus prime (default = M_8 = 2^31-1)
+# \param[in] h_0 the initial hash value (default 0)
 #
 proc ::turtles::hash {S {a 524287} {p 2147483647} {h_0 0}} {
 	set h $h_0

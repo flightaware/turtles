@@ -6,6 +6,13 @@ namespace import ::tcltest::*
 # Module under test
 source ../hashing.tcl
 
+## Convenience function for unit testing the \c ::turtles::hash proc.
+#
+# \param[in] S input string
+# \param[in] h expected hash, i.e., ground truth
+# \param[in] a multiplier parameter
+# \param[in] p modulus prime parameter
+# \param[in] h_0 initial hash value parameter
 proc test_hash {S h {a 524287} {p 2147483647} {h_0 0}} {
 	test hash_S=h {
 		Test [::turtles::hash $S == $h]
@@ -14,29 +21,31 @@ proc test_hash {S h {a 524287} {p 2147483647} {h_0 0}} {
 	} -result $h
 }
 
+## Sample tests
+# Illustrating defaults
 test_hash "" 0
 test_hash "a" 97
 test_hash "ab" 50855937
 test_hash "ba" 51380223
-
+#
 # Illustrating h_0 = 1
 test_hash "" 1 524287 2147483647 1
 test_hash "a" 524384 524287 2147483647 1
 test_hash "ab" 49807490 524287 2147483647 1
 test_hash "ba" 50331776 524287 2147483647 1
-
+#
 # Illustrating multipler a = 1 (not recommended)
 test_hash "" 0 1 2147483647 0
 test_hash "a" 97 1 2147483647 0
 test_hash "ab" 195 1 2147483647 0
 test_hash "ba" 195 1 2147483647 0
-
+#
 # Illustrating modulus prime p = 2 (not recommended)
 test_hash "" 0 524287 2 0
 test_hash "a" 1 524287 2 0
 test_hash "ab" 1 524287 2 0
 test_hash "ba" 1 524287 2 0
-
+#
 # Illustrating multiplier a = 0 (not recommended)
 test_hash "" 0 0 2147483647 0
 test_hash "a" 97 0 2147483647 0

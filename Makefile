@@ -3,9 +3,10 @@
 #
 PREFIX		?= /usr/local
 
-LIB			?= $(PREFIX)/lib
-BIN			?= $(PREFIX)/bin
+LIB		?= $(PREFIX)/lib
+DOC     	?= $(PREFIX)/share/doc
 TCLSH		?= tclsh
+DOCDIR		?=./docs
 UNAME_S		:= $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
 	INSTALL_GROUP=sudo
@@ -15,27 +16,26 @@ else
 	MAKE=gmake
 endif
 
-SERVER_INSTALLFILES= *.tcl
-DATA_INSTALLFILES=data/*.tcl data/*.txt
-CONFIGS_INSTALLFILES=data/configs/*
-
-INSTALLDIR=$(LIB)/$(PROGNAME)
-
-PACKAGE=turtles
+PACKAGE=turtles-0.1
 TARGET=$(LIB)/$(PACKAGE)
+DOCTARGET=$(DOC)/$(PACKAGE)
 FILES=*.tcl
 
-GITBRANCH:=$(shell git rev-parse --abbrev-ref HEAD | tr -d -c '[:alnum:]_')
-BRANCH_PACKAGE=$(PACKAGE)_$(GITBRANCH)
-BRANCH_TARGET=$(LIB)/$(BRANCH_PACKAGE)
-
-
 all:
-	@echo "'$(MAKE) install' to install the turtles Tcl package"
-	@echo "'$(MAKE) install-branch' to install a branch-specific version of the turtles Tcl package to $(BRANCHPROGNAME)"
+	@echo "'[sudo] $(MAKE) install' to install the turtles Tcl package"
+	@echo "=== Configurable environment variables ==="
+	@echo "Installation prefix:"
+	@echo "    PREFIX=$(PREFIX)"
+	@echo "Package library install directory:"
+	@echo "    LIB=$(LIB)"
+	@echo "Package documentation install directory:"
+	@echo "    DOC=$(DOC)"
+	@echo "Tcl shell command:"
+	@echo "    TCLSH=$(TCLSH)"
+	@echo "Documentation staging directory:"
+	@echo "    DOCDIR=$(DOCDIR)"
 
-install: install-package
-install-branch: install-branch-package
+install: install-package install-docs
 
 test-package: tests/all.tcl tests/*.test
 	@cd tests && tclsh all.tcl
@@ -43,26 +43,32 @@ test-package: tests/all.tcl tests/*.test
 pkgIndex.tcl: $(shell find . -name '*.tcl' | grep -v pkgIndex.tcl)
 	echo "pkg_mkIndex ." | $(TCLSH)
 
-install-package: pkgIndex.tcl test-package
+install-package: pkgIndex.tcl docs test-package
 	@echo ----- installing package
-	install -d -o root -g $(INSTALL_GROUP) -m 0755 $(TARGET)
-	install -o root -g $(INSTALL_GROUP) -m 0644 $(FILES) $(TARGET)/
+	@install -d -o root -g $(INSTALL_GROUP) -m 0755 $(TARGET)
+	@install -o root -g $(INSTALL_GROUP) -m 0644 $(FILES) $(TARGET)/
 	@echo "Installed $(PACKAGE) package to $(LIB)"
-
-
-install-branch-package: pkgIndex.tcl test-package
-	@echo ----- installing branch package
-	@install -d -o root -g $(INSTALL_GROUP) -m 0755 $(BRANCH_TARGET)
-	@install -o root -g $(INSTALL_GROUP) -m 0644 $(FILES) $(BRANCH_TARGET)/
-	@$(shell pwd)/rename_package.sh $(BRANCH_TARGET) $(GITBRANCH)
-	@echo "Installed $(BRANCH_PACKAGE) package to $(LIB)"
 
 tags:
 	@echo "Updating tags cache"
 	@/usr/local/bin/exctags -R .
 
-clean:
-	rm -rf $(TARGET)
+docs:
+	@echo "Generating package documentation"
+	@doxygen
 
-clean-branch:
-	rm -rf $(BRANCHINSTALLDIR)
+install-docs:
+	@echo ----- installing package docs
+	@install -d -o root -g $(INSTALL_GROUP) -m 0755 $(DOCTARGET)
+	@rsync -qvzp --chmod=Du=rwx,Dgo=rx,Fu=rw,Fog=r $(DOCDIR)/ $(DOCTARGET)/
+	@echo "Installed $(PACKAGE) documentation to $(DOC)"
+
+uninstall:
+	rm -rf $(TARGET)
+	rm -rf $(DOCTARGET)
+
+clean: clean-docs
+	rm -f *~
+
+clean-docs:
+	rm -rf $(DOCDIR)
