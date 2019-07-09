@@ -7,7 +7,6 @@ namespace eval ::turtles {
 }
 
 proc ::turtles::on_proc_enter {commandString op} {
-	set time_enter [ clock microseconds ]
 	# Retrieve the frame two levels down the call stack to avoid
 	# confusing with the stack frame for ::turtles::on_proc_enter.
 	set execFrame [info frame -2]
@@ -23,11 +22,14 @@ proc ::turtles::on_proc_enter {commandString op} {
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hash $callerName ]
 	set calleeId [ ::turtles::hash $calleeName ]
+	# Set time of entry as close to function entry as possible to avoid adding overhead to accounting.
+	set time_enter [ clock microseconds ]
 	# Record entry into proc.
 	puts stderr "\[$time_enter\] ($op) $callerName ($callerId) -> $calleeName ($calleeId)"
 }
 
 proc ::turtles::on_proc_leave {commandString code result op} {
+	# Set time of exit as close to function exit as possible to avoid adding overhead to accounting.
 	set time_leave [ clock microseconds ]
 	# Retrieve the frame two levels down the call stack to avoid
 	# confusing with the stack frame for ::turtles::on_proc_leave.
