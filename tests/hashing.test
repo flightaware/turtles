@@ -1,4 +1,4 @@
-## \file hash.test
+## \file hashing.test
 
 package require tcltest
 namespace import ::tcltest::*

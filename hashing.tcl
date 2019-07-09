@@ -1,7 +1,7 @@
 #!/usr/bin/env tclsh
 package require Tcl 8.5
 
-## \file hash.tcl
+## \file hashing.tcl
 # Provides a port of the Rabin-Karp rolling hash given at
 # https://en.wikipedia.org/wiki/Universal_hashing#Hashing_strings.
 # This is useful for mapping fully-qualified function names (FQFNs)
