@@ -6,50 +6,98 @@ namespace import ::tcltest::*
 # Module under test
 source ../hashing.tcl
 
-## Convenience function for unit testing the \c ::turtles::hash proc.
+## Convenience function for unit testing the \c ::turtles::hashing::hash_string proc.
 #
 # \param[in] S input string
 # \param[in] h expected hash, i.e., ground truth
 # \param[in] a multiplier parameter
 # \param[in] p modulus prime parameter
 # \param[in] h_0 initial hash value parameter
-proc test_hash {S h {a 524287} {p 2147483647} {h_0 0}} {
+proc test_hash_string {S h {a 524287} {p 2147483647} {h_0 0}} {
 	test hash_S=h {
-		Test [::turtles::hash $S == $h]
+		Test [::turtles::hashing::hash_string $S == $h]
 	} -body {
-		::turtles::hash $S $a $p $h_0
+		::turtles::hashing::hash_string $S $a $p $h_0
 	} -result $h
 }
 
-## Sample tests
+## Sample tests for string hashing
 # Illustrating defaults
-test_hash "" 0
-test_hash "a" 97
-test_hash "ab" 50855937
-test_hash "ba" 51380223
+test_hash_string "" 0
+test_hash_string "a" 97
+test_hash_string "ab" 50855937
+test_hash_string "ba" 51380223
 #
 # Illustrating h_0 = 1
-test_hash "" 1 524287 2147483647 1
-test_hash "a" 524384 524287 2147483647 1
-test_hash "ab" 49807490 524287 2147483647 1
-test_hash "ba" 50331776 524287 2147483647 1
+test_hash_string "" 1 524287 2147483647 1
+test_hash_string "a" 524384 524287 2147483647 1
+test_hash_string "ab" 49807490 524287 2147483647 1
+test_hash_string "ba" 50331776 524287 2147483647 1
 #
 # Illustrating multipler a = 1 (not recommended)
-test_hash "" 0 1 2147483647 0
-test_hash "a" 97 1 2147483647 0
-test_hash "ab" 195 1 2147483647 0
-test_hash "ba" 195 1 2147483647 0
+test_hash_string "" 0 1 2147483647 0
+test_hash_string "a" 97 1 2147483647 0
+test_hash_string "ab" 195 1 2147483647 0
+test_hash_string "ba" 195 1 2147483647 0
 #
 # Illustrating modulus prime p = 2 (not recommended)
-test_hash "" 0 524287 2 0
-test_hash "a" 1 524287 2 0
-test_hash "ab" 1 524287 2 0
-test_hash "ba" 1 524287 2 0
+test_hash_string "" 0 524287 2 0
+test_hash_string "a" 1 524287 2 0
+test_hash_string "ab" 1 524287 2 0
+test_hash_string "ba" 1 524287 2 0
 #
 # Illustrating multiplier a = 0 (not recommended)
-test_hash "" 0 0 2147483647 0
-test_hash "a" 97 0 2147483647 0
-test_hash "aa" 97 0 2147483647 0
-test_hash "ab" 98 0 2147483647 0
+test_hash_string "" 0 0 2147483647 0
+test_hash_string "a" 97 0 2147483647 0
+test_hash_string "aa" 97 0 2147483647 0
+test_hash_string "ab" 98 0 2147483647 0
+
+
+## Convenience function for unit testing the \c ::turtles::hashing::hash_int_list proc.
+#
+# \param[in] Z input int list
+# \param[in] h expected hash, i.e., ground truth
+# \param[in] a multiplier parameter
+# \param[in] p modulus prime parameter
+# \param[in] h_0 initial hash value parameter
+proc test_hash_int_list {Z h {a 524287} {p 2147483647} {h_0 0}} {
+	test hash_Z=h {
+		Test [::turtles::hashing::hash_int_list $Z == $h]
+	} -body {
+		::turtles::hashing::hash_int_list $Z $a $p $h_0
+	} -result $h
+}
+
+## Sample tests for int list hashing
+# Illustrating defaults
+test_hash_int_list [list] 0
+test_hash_int_list [list 97] 97
+test_hash_int_list [list 97 98] 50855937
+test_hash_int_list [list 98 97] 51380223
+#
+# Illustrating h_0 = 1
+test_hash_int_list [list] 1 524287 2147483647 1
+test_hash_int_list [list 97] 524384 524287 2147483647 1
+test_hash_int_list [list 97 98] 49807490 524287 2147483647 1
+test_hash_int_list [list 98 97] 50331776 524287 2147483647 1
+#
+# Illustrating multipler a = 1 (not recommended)
+test_hash_int_list [list] 0 1 2147483647 0
+test_hash_int_list [list 97] 97 1 2147483647 0
+test_hash_int_list [list 97 98] 195 1 2147483647 0
+test_hash_int_list [list 98 97] 195 1 2147483647 0
+#
+# Illustrating modulus prime p = 2 (not recommended)
+test_hash_int_list [list] 0 524287 2 0
+test_hash_int_list [list 97] 1 524287 2 0
+test_hash_int_list [list 97 98] 1 524287 2 0
+test_hash_int_list [list 98 97] 1 524287 2 0
+#
+# Illustrating multiplier a = 0 (not recommended)
+test_hash_int_list [list] 0 0 2147483647 0
+test_hash_int_list [list 97] 97 0 2147483647 0
+test_hash_int_list [list 97 97] 97 0 2147483647 0
+test_hash_int_list [list 97 98] 98 0 2147483647 0
+
 
 cleanupTests

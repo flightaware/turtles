@@ -33,8 +33,8 @@ proc ::turtles::on_proc_enter {commandString op} {
 	# Callee needs to be fully qualified for consistency.
 	set calleeName [namespace which -command [dict get $execFrame cmd]]
 	# Get hashes on FQFNs for caller and callee.
-	set callerId [ ::turtles::hash $callerName ]
-	set calleeId [ ::turtles::hash $calleeName ]
+	set callerId [ ::turtles::hashing::hash_string $callerName ]
+	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
 	# Set time of entry as close to function entry as possible to avoid adding overhead to accounting.
 	set time_enter [ clock microseconds ]
 	# Record entry into proc.
@@ -64,8 +64,8 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 	# Callee needs to be fully qualified for consistency.
 	set calleeName [namespace which -command [dict get $execFrame cmd]]
 	# Get hashes on FQFNs for caller and callee.
-	set callerId [ ::turtles::hash $callerName ]
-	set calleeId [ ::turtles::hash $calleeName ]
+	set callerId [ ::turtles::hashing::hash_string $callerName ]
+	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
 	# Record exit from proc.
 	puts stderr "\[$time_leave\] ($op) $callerName ($callerId) -> $calleeName ($calleeId)"
 }
