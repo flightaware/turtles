@@ -69,9 +69,10 @@ proc ::turtles::persistence::init_call_pt_table {stage} {
 # \param[in] timeDefined the epoch time in microseconds at which the proc definition was invoked
 proc ::turtles::persistence::add_proc_id {procId procName timeDefined} {
 	thread::send -async $::turtles::persistence::sqliteWorker [subst {
+		puts stderr "add_proc_id: $procId $procName $timeDefined"
 		::turtles::persistence::stage0 eval {
 			INSERT INTO proc_ids (proc_id, proc_name, time_defined)
-			VALUES($procId, $procName, $timeDefined);
+			VALUES($procId, '$procName', $timeDefined);
 		}
 	}]
 }
@@ -84,8 +85,9 @@ proc ::turtles::persistence::add_proc_id {procId procName timeDefined} {
 # \param[in] timeEnter the epoch time in microseconds at which the proc entry handler was triggered
 proc ::turtles::persistence::add_call {callerId calleeId traceId timeEnter} {
 	thread::send -async $::turtles::persistence::sqliteWorker [subst {
+		puts stderr "add_call: $callerId $calleeId $traceId $timeEnter"
 		::turtles::persistence::stage0 eval {
-			INSERT INTO call_pts (caller_id, callee_id, trace_id, time_enter, time_leave)
+			INSERT INTO call_pts (caller_id, callee_id, trace_id, time_enter)
 			VALUES($callerId, $calleeId, $traceId, $timeEnter);
 		}
 	}]
@@ -99,9 +101,10 @@ proc ::turtles::persistence::add_call {callerId calleeId traceId timeEnter} {
 # \param[in] timeLeave the epoch time in microseconds at which the proc exit handler was triggered
 proc ::turtles::persistence::update_call {callerId calleeId traceId timeLeave} {
 	thread::send -async $::turtles::persistence::sqliteWorker [subst {
+		puts stderr "update_call: $callerId $calleeId $traceId $timeLeave"
 		::turtles::persistence::stage0 eval {
-			UPDATE call_pts SET time_leave = $traceId
-			WHERE caller_id = $callerId AND callee_id = $calleeId AND trace_id = $trace_id;
+			UPDATE call_pts SET time_leave = $timeLeave
+			WHERE caller_id = $callerId AND callee_id = $calleeId AND trace_id = $traceId;
 		}
 	}]														   
 }
@@ -112,14 +115,16 @@ proc ::turtles::persistence::update_call {callerId calleeId traceId timeLeave} {
 #
 # \param[in] intervalMillis the number of milliseconds between operations
 proc ::turtles::persistence::finalize_worker {lastFinalizeTime intervalMillis} {
+	puts stderr "finalize_worker: [after info]"
 	# Finalize the next batch of uncommitted records.
 	set finalizeTime [::turtles::persistence::finalize $lastFinalizeTime]
 	# Set an alarm to wake up and do it again.
-	set ::turtles::persistence::nextFinalize [after $intervalMillis [list ::turtles::persistence::finalize_worker $finalizeTime $intervalMillis]]
+	set ::turtles::persistence::nextFinalize [after $intervalMillis ::turtles::persistence::finalize_worker $finalizeTime $intervalMillis ]
 }
 
 ## Transfers trace information from the ephemeral to the finalized DB.
 proc ::turtles::persistence::finalize {lastFinalizeTime} {
+	puts stderr "finalize"
 	set finalizeTime [clock microseconds]
 	# Only proceed if the databases exist.
 	if { [info comm ::turtles::persistence::stage0 ] ne {} &&
@@ -132,7 +137,7 @@ proc ::turtles::persistence::finalize {lastFinalizeTime} {
 		} values {
 			::turtles::persistence::stage1 eval {
 				INSERT INTO proc_ids (proc_id, proc_name, time_defined)
-				VALUES ([lindex values 0], [lindex values 1], [lindex values 2]);
+				VALUES ($values(proc_id), $values(proc_name), $values(time_defined));
 			}
 		}
 		# Copy _finalized_ call points from the last finalized to the present into the final DB.
@@ -144,7 +149,7 @@ proc ::turtles::persistence::finalize {lastFinalizeTime} {
 		} values {
 			::turtles::persistence::stage1 eval {
 				INSERT INTO call_pts (caller_id, callee_id, trace_id, time_enter, time_leave)
-				VALUES ([lindex values 0], [lindex values 1], [lindex values 2], [lindex values 3], [lindex values 4]);
+				VALUES ($values(caller_id), $values(callee_id), $values(trace_id), $values(time_enter), $values(time_leave));
 			}
 		}
 	}
@@ -173,7 +178,8 @@ proc ::turtles::persistence::start {finalDB {commitMode staged} {intervalMillis 
 				::turtles::persistence::init_call_pt_table ::turtles::persistence::stage0
 				::turtles::persistence::init_proc_id_table ::turtles::persistence::stage1
 				::turtles::persistence::init_call_pt_table ::turtles::persistence::stage1
-				set ::turtles::persistence::nextFinalize [after $intervalMillis [list ::turtles::persistence::finalize_worker 0 $intervalMillis]]
+				set ::turtles::persistence::nextFinalize [after $intervalMillis ::turtles::persistence::finalize_worker 0 $intervalMillis ]
+				puts stderr "pending: [after info]"
 				thread::wait
 			}]]
 		}
@@ -208,10 +214,13 @@ proc ::turtles::persistence::stop {} {
 	if { [info exists ::turtles::persistence::sqliteWorker] && [thread::exists $::turtles::persistence::sqliteWorker] } {
 		thread::send $::turtles::persistence::sqliteWorker {
 			if { [info comm ::turtles::persistence::stage1 ] ne {} } {
-				# Force any pending finalize call.
+				puts stderr "pending: [after info]"
+				# Force any pending finalize call to execute.
 				update
 				# Cancel the newly pending finalize call.
 				after cancel ::turtles::persistence::nextFinalize
+				# @FIXME: Ugly hack to flush pending trace info until after semantics can be sorted out.
+				::turtles::persistence::finalize 0
 				# Remove the pending finalize call handle.
 				unset ::turtles::persistence::nextFinalize
 				# Close the finalized database.

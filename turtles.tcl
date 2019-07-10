@@ -6,8 +6,9 @@
 # analysis with respect to call graphs, timing, and more.
 #
 
-package require Tcl              8.5
-package require turtles::hashing 0.1
+package require Tcl                  8.5
+package require turtles::hashing     0.1
+package require turtles::persistence 0.1
 
 ## The package namespace.
 namespace eval ::turtles {
@@ -35,10 +36,12 @@ proc ::turtles::on_proc_enter {commandString op} {
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
+	set traceId 0
 	# Set time of entry as close to function entry as possible to avoid adding overhead to accounting.
-	set time_enter [ clock microseconds ]
+	set timeEnter [ clock microseconds ]
 	# Record entry into proc.
-	puts stderr "\[$time_enter\] ($op) $callerName ($callerId) -> $calleeName ($calleeId)"
+	puts stderr "\[$timeEnter\] ($op) $callerName ($callerId) -> $calleeName ($calleeId)"
+	::turtles::persistence::add_call $callerId $calleeId $traceId $timeEnter
 }
 
 ## Handler for proc exit.
@@ -50,7 +53,7 @@ proc ::turtles::on_proc_enter {commandString op} {
 # \param[in] op the operation (in this case, \c leave).
 proc ::turtles::on_proc_leave {commandString code result op} {
 	# Set time of exit as close to function exit as possible to avoid adding overhead to accounting.
-	set time_leave [ clock microseconds ]
+	set timeLeave [ clock microseconds ]
 	# Retrieve the frame two levels down the call stack to avoid
 	# confusing with the stack frame for ::turtles::on_proc_leave.
 	set execFrame [info frame -2]
@@ -66,8 +69,10 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
+	set traceId 0
 	# Record exit from proc.
-	puts stderr "\[$time_leave\] ($op) $callerName ($callerId) -> $calleeName ($calleeId)"
+	puts stderr "\[$timeLeave\] ($op) $callerName ($callerId) -> $calleeName ($calleeId)"
+	::turtles::persistence::update_call $callerId $calleeId $traceId $timeLeave
 }
 
 ## Handler for injecting entry and exit handlers.
@@ -84,6 +89,10 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 proc ::turtles::on_proc_define_add_trace {commandString code result op} {
 	# Proc name needs to be fully qualified for consistency.
 	set procName [namespace which -command [lindex [split $commandString { }] 1]]
+	set procId [::turtles::hashing::hash_string $procName]
+	set timeDefined [clock microseconds]
+	::turtles::persistence::add_proc_id $procId $procName $timeDefined
+	lappend ::turtles::tracedProcs $procName
 	# Add handler for proc entry.
 	if { [ catch { trace add execution $procName [list enter] ::turtles::on_proc_enter } err ] } {
 !		puts stderr "Failed to add enter trace for $procName : $err"
@@ -99,7 +108,19 @@ proc ::turtles::on_proc_define_add_trace {commandString code result op} {
 # This function binds to the \c proc command so that any proc declared after invocation
 # will have the entry and exit handlers bound to it.
 proc ::turtles::release_the_turtles {} {
+	::turtles::persistence::start "turtles-[clock microseconds].db"
+	set ::turtles::tracedProcs [list]
 	trace add execution proc [list leave] ::turtles::on_proc_define_add_trace
+}
+
+proc ::turtles::capture_the_turtles {} {
+	trace remove execution proc [list leave] ::turtles::on_proc_define_add_trace
+	foreach handledProc $::turtles::tracedProcs {
+		trace remove execution $handledProc [list enter] ::turtles::on_proc_enter
+		trace remove execution $handledProc [list leave] ::turtles::on_proc_leave
+	}
+	unset ::turtles::tracedProcs
+	::turtles::persistence::stop
 }
 
 package provide turtles          0.1
