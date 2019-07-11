@@ -10,13 +10,13 @@ source ../persistence.tcl
 proc with_persistence_test {finalDB {commitMode staged} {intervalMillis 1000} {testBody {return 1}} {testResult 1}} {
 	test with_persistence {} -setup {
 		::turtles::persistence::start $finalDB $commitMode $intervalMillis
-		if { ![ thread::exists $::turtles::persistence::sqliteWorker ] } {
+		if { ![ thread::exists $::turtles::persistence::finalizer ] } {
 			error "Sqlite worker is not running!"
 		}
 	} -body { [eval $testBody]
 	} -cleanup {
 		::turtles::persistence::stop
-		if { [ thread::exists $::turtles::persistence::sqliteWorker ] } {
+		if { [ thread::exists $::turtles::persistence::finalizer ] } {
 			error "Sqlite worker is still running!"
 		}
 	} -result $testResult
