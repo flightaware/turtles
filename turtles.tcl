@@ -7,6 +7,7 @@
 #
 
 package require Tcl                  8.5
+package require struct               1.3
 package require turtles::hashing     0.1
 package require turtles::persistence 0.1
 
@@ -36,9 +37,13 @@ proc ::turtles::on_proc_enter {commandString op} {
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
-	set traceId 0
 	# Set time of entry as close to function entry as possible to avoid adding overhead to accounting.
 	set timeEnter [ clock microseconds ]
+	# Set the unique trace ID for this exact call point.
+	# The trace ID is a hash of the caller, callee, and time of entry.
+	# This is pushed onto a stack so that the corresponding leave handler must pop this.
+	set traceId [ ::turtles::hashing::hash_int_list [list $callerId $calleeId $timeEnter] ]
+	::turtles::traceIds push $traceId
 	# Record entry into proc.
 	puts stderr "\[$timeEnter\] ($op) $callerName ($callerId) -> $calleeName ($calleeId)"
 	::turtles::persistence::add_call $callerId $calleeId $traceId $timeEnter
@@ -54,6 +59,7 @@ proc ::turtles::on_proc_enter {commandString op} {
 proc ::turtles::on_proc_leave {commandString code result op} {
 	# Set time of exit as close to function exit as possible to avoid adding overhead to accounting.
 	set timeLeave [ clock microseconds ]
+	set traceId [::turtles::traceIds pop ]
 	# Retrieve the frame two levels down the call stack to avoid
 	# confusing with the stack frame for ::turtles::on_proc_leave.
 	set execFrame [info frame -2]
@@ -69,7 +75,6 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
-	set traceId 0
 	# Record exit from proc.
 	puts stderr "\[$timeLeave\] ($op) $callerName ($callerId) -> $calleeName ($calleeId)"
 	::turtles::persistence::update_call $callerId $calleeId $traceId $timeLeave
@@ -108,8 +113,12 @@ proc ::turtles::on_proc_define_add_trace {commandString code result op} {
 # This function binds to the \c proc command so that any proc declared after invocation
 # will have the entry and exit handlers bound to it.
 proc ::turtles::release_the_turtles {} {
+	# Start the persistence mechanism now so it's ready once the hooks are added.
 	::turtles::persistence::start "turtles-[clock microseconds].db"
+	# Initialize an empty list of procs being traced.
 	set ::turtles::tracedProcs [list]
+	# Create a stack for keeping track of trace IDs during execution.
+	::struct::stack ::turtles::traceIds
 	trace add execution proc [list leave] ::turtles::on_proc_define_add_trace
 }
 
