@@ -84,7 +84,6 @@ proc ::turtles::persistence::init_call_pt_table {stage} {
 # \param[in] timeDefined the epoch time in microseconds at which the proc definition was invoked
 proc ::turtles::persistence::add_proc_id {procId procName timeDefined} {
 	thread::send -async $::turtles::persistence::recorder [subst {
-		puts "add_proc_id: $procId $procName $timeDefined"
 		::turtles::persistence::stage0 eval {
 			INSERT INTO proc_ids (proc_id, proc_name, time_defined)
 			VALUES($procId, '$procName', $timeDefined);
@@ -100,7 +99,6 @@ proc ::turtles::persistence::add_proc_id {procId procName timeDefined} {
 # \param[in] timeEnter the epoch time in microseconds at which the proc entry handler was triggered
 proc ::turtles::persistence::add_call {callerId calleeId traceId timeEnter} {
 	thread::send -async $::turtles::persistence::recorder [subst {
-		puts "add_call: $callerId $calleeId $traceId $timeEnter"
 		::turtles::persistence::stage0 eval {
 			INSERT INTO call_pts (caller_id, callee_id, trace_id, time_enter)
 			VALUES($callerId, $calleeId, $traceId, $timeEnter);
@@ -116,7 +114,6 @@ proc ::turtles::persistence::add_call {callerId calleeId traceId timeEnter} {
 # \param[in] timeLeave the epoch time in microseconds at which the proc exit handler was triggered
 proc ::turtles::persistence::update_call {callerId calleeId traceId timeLeave} {
 	thread::send -async $::turtles::persistence::recorder [subst {
-		puts "update_call: $callerId $calleeId $traceId $timeLeave"
 		::turtles::persistence::stage0 eval {
 			UPDATE call_pts SET time_leave = $timeLeave
 			WHERE caller_id = $callerId AND callee_id = $calleeId AND trace_id = $traceId;
@@ -153,17 +150,14 @@ proc ::turtles::persistence::finalize {stage0 stage1} {
 		$stage1 eval {
 			SELECT COALESCE(MAX(t), 0) AS tmax FROM (SELECT time_defined AS t FROM proc_ids UNION SELECT time_leave AS t FROM call_pts);
 		} values {
-			parray values
 			set lastFinalizeTime $values(tmax)
 		}
-		puts "finalize $stage0 $stage1 $lastFinalizeTime"
 
 		# Copy proc ids from the last finalized to the present into the final DB.
 		$stage0 eval {
 			SELECT proc_id, proc_name, time_defined FROM proc_ids
 			WHERE time_defined > $lastFinalizeTime
 		} values {
-			parray values
 			$stage1 eval {
 				INSERT INTO proc_ids (proc_id, proc_name, time_defined)
 				VALUES ($values(proc_id), $values(proc_name), $values(time_defined));
@@ -175,7 +169,6 @@ proc ::turtles::persistence::finalize {stage0 stage1} {
 			WHERE time_leave IS NOT NULL
 			  AND time_leave > $lastFinalizeTime
 		} values {
-			parray values
 			$stage1 eval {
 				INSERT INTO call_pts (caller_id, callee_id, trace_id, time_enter, time_leave)
 				VALUES ($values(caller_id), $values(callee_id), $values(trace_id), $values(time_enter), $values(time_leave));
@@ -282,7 +275,6 @@ proc ::turtles::persistence::start_finalizer {recorderThread stage0 stage1 inter
 # NB: This should not be invoked while trace handlers which could modify
 # the stage databases are active.
 proc ::turtles::persistence::stop_finalizer {recorderThread stage0 stage1} {
-	puts "stop_finalizer"
 	# Force any pending finalize call to execute.
 	update
 	# Cancel the newly pending finalize call.
