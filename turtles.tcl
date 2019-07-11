@@ -113,6 +113,10 @@ proc ::turtles::release_the_turtles {} {
 	trace add execution proc [list leave] ::turtles::on_proc_define_add_trace
 }
 
+## User-level convenience function for ending automatic \c proc instrumentation
+# as initiated by \c ::turtles::release_the_turtles.
+#
+# NB: This function removes all the trace hooks before stopping the persistence mechanism.
 proc ::turtles::capture_the_turtles {} {
 	trace remove execution proc [list leave] ::turtles::on_proc_define_add_trace
 	foreach handledProc $::turtles::tracedProcs {
