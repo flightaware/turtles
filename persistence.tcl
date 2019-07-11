@@ -77,6 +77,38 @@ proc ::turtles::persistence::init_call_pt_table {stage} {
 	}
 }
 
+## Creates a number of useful views for aggregate statistics about calls.
+#
+# \param[in] stage persistence stage DB
+proc ::turtles::persistence::init_views {stage} {
+	$stage eval {
+		CREATE VIEW IF NOT EXISTS calls_by_caller_callee AS
+		SELECT caller_name, callee_name, COUNT(*) AS calls, SUM(time_leave - time_enter) AS total_exec_micros, SUM(time_leave - time_enter)/COUNT(*) AS avg_exec_micros
+		FROM (SELECT COALESCE(callers.proc_name, "") AS caller_name, callees.proc_name AS callee_name, time_enter, time_leave
+			  FROM call_pts
+			  LEFT JOIN proc_ids AS callers ON callers.proc_id = caller_id
+			  INNER JOIN proc_ids AS callees ON callees.proc_id = callee_id)
+		GROUP BY caller_name, callee_name
+		ORDER BY total_exec_micros DESC;
+	}
+	$stage eval {
+		CREATE VIEW IF NOT EXISTS calls_by_callee AS
+		SELECT callee_name, SUM(calls) AS calls, SUM(total_exec_micros) AS total_exec_micros, SUM(total_exec_micros)/SUM(calls) AS avg_exec_micros
+		FROM calls_by_caller_callee
+		GROUP BY callee_name
+		ORDER BY total_exec_micros DESC;
+	}
+	$stage eval {
+		CREATE VIEW IF NOT EXISTS unused_procs AS
+		SELECT callee_name
+		FROM (SELECT proc_name AS callee_name
+			  FROM proc_ids
+			  LEFT JOIN call_pts ON proc_ids.proc_id = call_pts.callee_id
+			  WHERE callee_id IS NULL)
+		ORDER BY callee_name;
+	}
+}
+
 ## Adds a proc id to the proc id table in the stage 0 persistence DB.
 #
 # \param[in] procId proc name hash
@@ -235,6 +267,7 @@ proc ::turtles::persistence::init_stage {stage {stageName :memory:}} {
 	sqlite3 $stage $stageName
 	::turtles::persistence::init_proc_id_table $stage
 	::turtles::persistence::init_call_pt_table $stage
+	::turtles::persistence::init_views $stage
 }
 
 ## Tears down a given stage in the persistence model.
