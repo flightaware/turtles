@@ -7,12 +7,24 @@ LIB		?= $(PREFIX)/lib
 DOC     	?= $(PREFIX)/share/doc
 TCLSH		?= tclsh
 DOCDIR		?=./docs
+# Set OWNER to $(whoami) for userspace installs.
+# INSTALL_GROUP can also be explicitly overridden.
+# See below for defaults.
+OWNER           ?=root
 UNAME_S		:= $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
-	INSTALL_GROUP=sudo
+	ifeq ($(OWNER),root)
+		INSTALL_GROUP ?=sudo
+	else
+		INSTALL_GROUP ?=$(shell groups $(OWNER) | cut -d' ' -f1)
+	endif
 	MAKE=make
 else
-	INSTALL_GROUP=wheel
+	ifeq ($(OWNER),root)
+		INSTALL_GROUP ?=wheel
+	else
+		INSTALL_GROUP ?=$(shell groups $(OWNER) | cut -d' ' -f1)
+	endif
 	MAKE=gmake
 endif
 
@@ -45,8 +57,8 @@ pkgIndex.tcl: $(shell find . -name '*.tcl' | grep -v pkgIndex.tcl)
 
 install-package: pkgIndex.tcl docs test-package
 	@echo ----- installing package
-	@install -d -o root -g $(INSTALL_GROUP) -m 0755 $(TARGET)
-	@install -o root -g $(INSTALL_GROUP) -m 0644 $(FILES) $(TARGET)/
+	@install -d -o $(OWNER) -g $(INSTALL_GROUP) -m 0755 $(TARGET)
+	@install -o $(OWNER) -g $(INSTALL_GROUP) -m 0644 $(FILES) $(TARGET)/
 	@echo "Installed $(PACKAGE) package to $(LIB)"
 
 tags:
@@ -59,7 +71,7 @@ docs:
 
 install-docs:
 	@echo ----- installing package docs
-	@install -d -o root -g $(INSTALL_GROUP) -m 0755 $(DOCTARGET)
+	@install -d -o $(OWNER) -g $(INSTALL_GROUP) -m 0755 $(DOCTARGET)
 	@rsync -qvzp --chmod=Du=rwx,Dgo=rx,Fu=rw,Fog=r $(DOCDIR)/ $(DOCTARGET)/
 	@echo "Installed $(PACKAGE) documentation to $(DOC)"
 
