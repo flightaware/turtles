@@ -129,6 +129,20 @@ proc ::turtles::on_proc_define_add_trace {commandString code result op} {
 proc ::turtles::release_the_turtles {} {
 	# Start the persistence mechanism now so it's ready once the hooks are added.
 	::turtles::persistence::start "turtles-[clock microseconds].db"
+
+	# Bootstrap the proc IDs for the ::turtles namespace and its children
+	# so that the standard views make sense.
+	foreach procName [ concat \
+						   [info procs ::turtles::*] \
+						   [info procs ::turtles::hashing::*] \
+						   [info procs ::turtles::persistence::*] ] {
+		# Calculate the proc ID hash and set the time defined.
+		set procId [::turtles::hashing::hash_string $procName]
+		set timeDefined [clock microseconds]
+		# Add the proc ID hash to the lookup table and the list of traced procs.
+		::turtles::persistence::add_proc_id $procId $procName $timeDefined
+	}
+
 	# Initialize an empty list of procs being traced.
 	set ::turtles::tracedProcs [list]
 	# Create a stack for keeping track of trace IDs during execution.
