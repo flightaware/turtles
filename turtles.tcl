@@ -43,12 +43,12 @@ proc ::turtles::on_proc_enter {commandString op} {
 	set timeEnter [ clock microseconds ]
 	# Set the unique trace ID for this exact call point.
 	# The trace ID is a hash of the caller, callee, and time of entry.
-	# This is pushed onto a stack so that the corresponding leave handler must pop this.
 	set traceId [ ::turtles::hashing::hash_int_list [list $callerId $calleeId $timeEnter] ]
-	::turtles::traceIds push $traceId
 	# Record entry into proc.
-	puts stderr "\[$timeEnter\] ($op) $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
+	puts stderr "\[$timeEnter:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
 	::turtles::persistence::add_call $callerId $calleeId $traceId $timeEnter
+	# The trace ID is pushed onto a stack so that the corresponding leave handler must pop this.
+	::turtles::traceIds push $traceId
 }
 
 ## Handler for proc exit.
@@ -59,9 +59,9 @@ proc ::turtles::on_proc_enter {commandString op} {
 # \param[in] result the result string from the executed command
 # \param[in] op the operation (in this case, \c leave).
 proc ::turtles::on_proc_leave {commandString code result op} {
+	set traceId [::turtles::traceIds pop ]
 	# Set time of exit as close to function exit as possible to avoid adding overhead to accounting.
 	set timeLeave [ clock microseconds ]
-	set traceId [::turtles::traceIds pop ]
 	# Retrieve the frame two levels down the call stack to avoid
 	# confusing with the stack frame for ::turtles::on_proc_leave.
 	set execFrame [info frame -2]
@@ -80,7 +80,7 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
 	# Record exit from proc.
-	puts stderr "\[$timeLeave\] ($op) $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
+	puts stderr "\[$timeLeave:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
 	::turtles::persistence::update_call $callerId $calleeId $traceId $timeLeave
 }
 
