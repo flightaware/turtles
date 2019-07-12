@@ -1,5 +1,5 @@
 #!/usr/bin/env tclsh
-package require Tcl 8.5
+package require Tcl 8.5 8.6
 
 ## \file hashing.tcl
 # Provides a port of the Rabin-Karp rolling hash given at

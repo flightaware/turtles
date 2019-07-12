@@ -6,7 +6,7 @@
 # analysis with respect to call graphs, timing, and more.
 #
 
-package require Tcl                  8.5
+package require Tcl                  8.5 8.6
 package require struct               1.3
 package require turtles::hashing     0.1
 package require turtles::persistence 0.1

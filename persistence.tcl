@@ -1,5 +1,5 @@
 #!/usr/bin/env tclsh
-package require Tcl     8.5
+package require Tcl     8.5 8.6
 package require Thread
 package require sqlite3
 
@@ -118,7 +118,8 @@ proc ::turtles::persistence::add_proc_id {procId procName timeDefined} {
 	thread::send -async $::turtles::persistence::recorder [subst {
 		::turtles::persistence::stage0 eval {
 			INSERT INTO proc_ids (proc_id, proc_name, time_defined)
-			VALUES($procId, '$procName', $timeDefined);
+			VALUES($procId, '$procName', $timeDefined)
+			ON CONFLICT DO NOTHING;
 		}
 	}]
 }
@@ -220,7 +221,7 @@ proc ::turtles::persistence::start {finalDB {commitMode staged} {intervalMillis 
 	switch $commitMode {
 		staged {
 			set ::turtles::persistence::recorder [thread::create -joinable [subst {
-				package require Tcl 8.5
+				package require Tcl 8.5 8.6
 				package require Thread
 				package require sqlite3
 				source $::turtles::persistence::script
@@ -229,7 +230,7 @@ proc ::turtles::persistence::start {finalDB {commitMode staged} {intervalMillis 
 				thread::wait
 			}]]
 			set ::turtles::persistence::scheduler [thread::create [subst {
-				package require Tcl 8.5
+				package require Tcl 8.5 8.6
 				package require Thread
 				source $::turtles::persistence::script
 				# Pass recorder thread ID to scheduler.
@@ -239,7 +240,7 @@ proc ::turtles::persistence::start {finalDB {commitMode staged} {intervalMillis 
 		}
 		direct {
 			set ::turtles::persistence::finalizer [thread::create -joinable [subst {
-				package require Tcl 8.5
+				package require Tcl 8.5 8.6
 				package require Thread
 				package require sqlite3
 				source $::turtles::persistence::script
