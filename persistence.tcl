@@ -239,7 +239,7 @@ proc ::turtles::persistence::start {finalDB {commitMode staged} {intervalMillis 
 			}]]
 		}
 		direct {
-			set ::turtles::persistence::finalizer [thread::create -joinable [subst {
+			set ::turtles::persistence::recorder [thread::create -joinable [subst {
 				package require Tcl 8.5 8.6
 				package require Thread
 				package require sqlite3
