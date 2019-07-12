@@ -33,9 +33,9 @@ proc ::turtles::on_proc_enter {commandString op} {
 		set callerName ""
 	}
 	# Callee needs to be fully qualified for consistency.
-	set calleeCmd [string trimleft [dict get $execFrame cmd] \{]
-	regsub {^(\S+)\s+.*$} $calleeCmd {\1} rawCalleeName
-	set calleeName [uplevel namespace which -command $rawCalleeName]
+	set calleeCmd [dict get $execFrame cmd]
+	regsub {^([{][*][}])?(\S+)\s+.*$} $calleeCmd {\2} rawCalleeName
+	set calleeName [uplevel namespace which -command [uplevel subst $rawCalleeName]]
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
@@ -47,7 +47,7 @@ proc ::turtles::on_proc_enter {commandString op} {
 	set traceId [ ::turtles::hashing::hash_int_list [list $callerId $calleeId $timeEnter] ]
 	::turtles::traceIds push $traceId
 	# Record entry into proc.
-	puts stderr "\[$timeEnter\] ($op) $callerName ($callerId) -> $calleeName ($calleeId)"
+	puts stderr "\[$timeEnter\] ($op) $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
 	::turtles::persistence::add_call $callerId $calleeId $traceId $timeEnter
 }
 
@@ -73,14 +73,14 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 		set callerName ""
 	}
 	# Callee needs to be fully qualified for consistency.
-	set calleeCmd [string trimleft [dict get $execFrame cmd] \{]
-	regsub {^(\S+)\s+.*$} $calleeCmd {\1} rawCalleeName
-	set calleeName [uplevel namespace which -command $rawCalleeName]
+	set calleeCmd [dict get $execFrame cmd]
+	regsub {^([{][*][}])?(\S+)\s+.*$} $calleeCmd {\2} rawCalleeName
+	set calleeName [uplevel namespace which -command [uplevel subst $rawCalleeName]]
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
 	# Record exit from proc.
-	puts stderr "\[$timeLeave\] ($op) $callerName ($callerId) -> $calleeName ($calleeId)"
+	puts stderr "\[$timeLeave\] ($op) $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
 	::turtles::persistence::update_call $callerId $calleeId $traceId $timeLeave
 }
 
