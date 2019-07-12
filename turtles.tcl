@@ -33,7 +33,9 @@ proc ::turtles::on_proc_enter {commandString op} {
 		set callerName ""
 	}
 	# Callee needs to be fully qualified for consistency.
-	set calleeName [namespace which -command [dict get $execFrame cmd]]
+	set calleeCmd [string trimleft [dict get $execFrame cmd] \{]
+	regsub {^(\S+)\s+.*$} $calleeCmd {\1} rawCalleeName
+	set calleeName [uplevel namespace which -command $rawCalleeName]
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
@@ -71,7 +73,9 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 		set callerName ""
 	}
 	# Callee needs to be fully qualified for consistency.
-	set calleeName [namespace which -command [dict get $execFrame cmd]]
+	set calleeCmd [string trimleft [dict get $execFrame cmd] \{]
+	regsub {^(\S+)\s+.*$} $calleeCmd {\1} rawCalleeName
+	set calleeName [uplevel namespace which -command $rawCalleeName]
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
