@@ -126,9 +126,15 @@ proc ::turtles::on_proc_define_add_trace {commandString code result op} {
 #
 # This function binds to the \c proc command so that any proc declared after invocation
 # will have the entry and exit handlers bound to it.
-proc ::turtles::release_the_turtles {} {
+#
+# The necessary arguments to \c ::turtles::persistence::start are exposed here as pass-through arguments.
+#
+# \param[in] finalDB the file for finalized persistence as a sqlite DB [default: turtles-[clock microseconds].db]
+# \param[in] commitMode the mode for persistence (\c staged | \c direct) [default: \c staged]
+# \param[in] intervalMillis the number of milliseconds between stage transfers [default: 30000]
+proc ::turtles::release_the_turtles {{finalDB "turtles-[clock microseconds].db"} {commitMode staged} {intervalMillis 30000}} {
 	# Start the persistence mechanism now so it's ready once the hooks are added.
-	::turtles::persistence::start "turtles-[clock microseconds].db"
+	::turtles::persistence::start $finalDB $commitMode $intervalMillis
 
 	# Bootstrap the proc IDs for the ::turtles namespace and its children
 	# so that the standard views make sense.

@@ -216,8 +216,8 @@ proc ::turtles::persistence::finalize {stage0 stage1} {
 #
 # \param[in] finalDB the file for finalized persistence as a sqlite DB
 # \param[in] commitMode the mode for persistence (\c staged | \c direct) [default: \c staged]
-# \param[in] intervalMillis the number of milliseconds between stage transfers
-proc ::turtles::persistence::start {finalDB {commitMode staged} {intervalMillis 1000}} {
+# \param[in] intervalMillis the number of milliseconds between stage transfers [default: 30000]
+proc ::turtles::persistence::start {finalDB {commitMode staged} {intervalMillis 30000}} {
 	switch $commitMode {
 		staged {
 			set ::turtles::persistence::recorder [thread::create -joinable [subst {
