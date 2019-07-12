@@ -100,7 +100,7 @@ proc ::turtles::on_proc_define_add_trace {commandString code result op} {
 	lappend ::turtles::tracedProcs $procName
 	# Add handler for proc entry.
 	if { [ catch { trace add execution $procName [list enter] ::turtles::on_proc_enter } err ] } {
-!		puts stderr "Failed to add enter trace for $procName : $err"
+		puts stderr "Failed to add enter trace for $procName : $err"
 	}
 	# Add handler for proc exit.
 	if { [ catch { trace add execution $procName [list leave] ::turtles::on_proc_leave } err ] } {
