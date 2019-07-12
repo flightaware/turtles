@@ -93,18 +93,28 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 # \param[in] op the operation (in this case, \c leave).
 proc ::turtles::on_proc_define_add_trace {commandString code result op} {
 	# Proc name needs to be fully qualified for consistency.
-	set procName [namespace which -command [lindex [split $commandString { }] 1]]
-	set procId [::turtles::hashing::hash_string $procName]
-	set timeDefined [clock microseconds]
-	::turtles::persistence::add_proc_id $procId $procName $timeDefined
-	lappend ::turtles::tracedProcs $procName
-	# Add handler for proc entry.
-	if { [ catch { trace add execution $procName [list enter] ::turtles::on_proc_enter } err ] } {
-		puts stderr "Failed to add enter trace for $procName : $err"
-	}
-	# Add handler for proc exit.
-	if { [ catch { trace add execution $procName [list leave] ::turtles::on_proc_leave } err ] } {
-		puts stderr "Failed to add leave trace for $procName : $err"
+	set isProcDef [regsub {^proc\s+(\S+).*$} $commandString {\1} rawProcName]
+	# Proceed only if the command string is a proc def.
+	if { $isProcDef } {
+		# Attempt name resolution.
+		set procName [uplevel namespace which -command $rawProcName]
+		# Proceed only if we can resolve the proc name.
+		if { $procName ne {} } {
+			# Calculate the proc ID hash and set the time defined.
+			set procId [::turtles::hashing::hash_string $procName]
+			set timeDefined [clock microseconds]
+			# Add the proc ID hash to the lookup table and the list of traced procs.
+			::turtles::persistence::add_proc_id $procId $procName $timeDefined
+			lappend ::turtles::tracedProcs $procName
+			# Add handler for proc entry.
+			if { [ catch { trace add execution $procName [list enter] ::turtles::on_proc_enter } err ] } {
+				puts stderr "Failed to add enter trace for '$procName' [info commands $procName] \{$commandString\}: $err"
+			}
+			# Add handler for proc exit.
+			if { [ catch { trace add execution $procName [list leave] ::turtles::on_proc_leave } err ] } {
+				puts stderr "Failed to add leave trace for '$procName' [info commands $procName] \{$commandString\}: $err"
+			}
+		}
 	}
 }
 
