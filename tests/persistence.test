@@ -22,5 +22,39 @@ proc with_persistence_test {finalDB {commitMode staged} {intervalMillis 1000} {t
 	} -result $testResult
 }
 
-with_persistence_test ./finalDB
-with_persistence_test ./finalDB direct
+with_persistence_test {}
+with_persistence_test {} direct
+
+with_persistence_test {} staged 50 {
+	turtles::persistence::add_proc_id 1 ::one [clock microseconds]
+	turtles::persistence::add_call 0 1 0 [clock microseconds]
+	after 25
+	turtles::persistence::update_call 0 1 0 [clock microseconds] awaiter
+	# Since call is async thread::send, need to wait for call to actually be executed
+	# to check if corresponding finalization has occurred.
+	vwait awaiter
+	after 50
+	thread::send $::turtles::persistence::recorder {
+		return [::turtles::persistence::stage1 eval {
+			SELECT calls FROM calls_by_caller_callee WHERE caller_name = '' AND callee_name = '::one';
+		}]
+	} result
+	return 0
+	#$result
+} 1
+
+with_persistence_test {} direct 50 {
+	turtles::persistence::add_proc_id 1 ::one [clock microseconds]
+	turtles::persistence::add_call 0 1 0 [clock microseconds]
+	after 25
+	turtles::persistence::update_call 0 1 0 [clock microseconds]
+	# No delay required. Direct write hits the final DB directly.
+	thread::send $::turtles::persistence::recorder {
+		return [::turtles::persistence::stage0 eval {
+			SELECT calls FROM calls_by_caller_callee WHERE caller_name = '' AND callee_name = '::one';
+		}]
+	} result
+	return $result
+} 1
+
+cleanupTests
