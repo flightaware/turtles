@@ -42,7 +42,6 @@ with_persistence_test {} staged 50 {
 		}]
 	} result
 	return $result
-	#$result
 } 1
 
 with_persistence_test {} direct 50 {
