@@ -7,7 +7,7 @@
 #
 
 package require Tcl                  8.5 8.6
-package require struct               1.3
+package require Thread
 package require turtles::hashing     0.1
 package require turtles::persistence 0.1
 
@@ -32,6 +32,8 @@ proc ::turtles::on_proc_enter {commandString op} {
 		# Called from top level
 		set callerName ""
 	}
+	# Avoid unnecessary recursive descent.
+	if { [ regexp {^::turtles::} $callerName ] } { return }
 	# Callee needs to be fully qualified for consistency.
 	set calleeCmd [dict get $execFrame cmd]
 	regsub {^([{][*][}])?(\S+)\s+.*$} $calleeCmd {\2} rawCalleeName
@@ -39,16 +41,16 @@ proc ::turtles::on_proc_enter {commandString op} {
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
+	regsub {tid} [ thread::id ] {} threadId
+	set srcLine  [ dict get $execFrame line]
+	# Set the unique trace ID for this exact call point.
+	# The trace ID is a hash of the caller, callee, source line, and current thread.
+	set traceId [ ::turtles::hashing::hash_int_list [list $callerId $calleeId $srcLine $threadId] ]
 	# Set time of entry as close to function entry as possible to avoid adding overhead to accounting.
 	set timeEnter [ clock microseconds ]
-	# Set the unique trace ID for this exact call point.
-	# The trace ID is a hash of the caller, callee, and time of entry.
-	set traceId [ ::turtles::hashing::hash_int_list [list $callerId $calleeId $timeEnter] ]
 	# Record entry into proc.
 	puts stderr "\[$timeEnter:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
 	::turtles::persistence::add_call $callerId $calleeId $traceId $timeEnter
-	# The trace ID is pushed onto a stack so that the corresponding leave handler must pop this.
-	::turtles::traceIds push $traceId
 }
 
 ## Handler for proc exit.
@@ -59,7 +61,6 @@ proc ::turtles::on_proc_enter {commandString op} {
 # \param[in] result the result string from the executed command
 # \param[in] op the operation (in this case, \c leave).
 proc ::turtles::on_proc_leave {commandString code result op} {
-	set traceId [::turtles::traceIds pop ]
 	# Set time of exit as close to function exit as possible to avoid adding overhead to accounting.
 	set timeLeave [ clock microseconds ]
 	# Retrieve the frame two levels down the call stack to avoid
@@ -72,6 +73,8 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 		# Called from top level
 		set callerName ""
 	}
+	# Avoid unnecessary recursive descent.
+	if { [ regexp {^::turtles::} $callerName ] } { return }
 	# Callee needs to be fully qualified for consistency.
 	set calleeCmd [dict get $execFrame cmd]
 	regsub {^([{][*][}])?(\S+)\s+.*$} $calleeCmd {\2} rawCalleeName
@@ -79,6 +82,10 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
+	regsub {tid} [ thread::id ] {} threadId
+	set srcLine  [ dict get $execFrame line]
+	# The trace ID is a hash of the caller, callee, source line, and current thread.
+	set traceId [ ::turtles::hashing::hash_int_list [list $callerId $calleeId $srcLine $threadId] ]
 	# Record exit from proc.
 	puts stderr "\[$timeLeave:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
 	::turtles::persistence::update_call $callerId $calleeId $traceId $timeLeave
@@ -104,21 +111,25 @@ proc ::turtles::on_proc_define_add_trace {commandString code result op} {
 		set procName [uplevel namespace which -command $rawProcName]
 		# Proceed only if we can resolve the proc name.
 		if { $procName ne {} } {
-			# Calculate the proc ID hash and set the time defined.
-			set procId [::turtles::hashing::hash_string $procName]
-			set timeDefined [clock microseconds]
-			# Add the proc ID hash to the lookup table and the list of traced procs.
-			::turtles::persistence::add_proc_id $procId $procName $timeDefined
-			lappend ::turtles::tracedProcs $procName
-			# Add handler for proc entry.
-			if { [ catch { trace add execution $procName [list enter] ::turtles::on_proc_enter } err ] } {
-				puts stderr "Failed to add enter trace for '$procName' [info commands $procName] \{$commandString\}: $err"
-			}
-			# Add handler for proc exit.
-			if { [ catch { trace add execution $procName [list leave] ::turtles::on_proc_leave } err ] } {
-				puts stderr "Failed to add leave trace for '$procName' [info commands $procName] \{$commandString\}: $err"
-			}
+			::turtles::add_proc_trace $procName
 		}
+	}
+}
+
+proc ::turtles::add_proc_trace {procName} {
+	# Calculate the proc ID hash and set the time defined.
+	set procId [::turtles::hashing::hash_string $procName]
+	set timeDefined [clock microseconds]
+	# Add the proc ID hash to the lookup table and the list of traced procs.
+	::turtles::persistence::add_proc_id $procId $procName $timeDefined
+	lappend ::turtles::tracedProcs $procName
+	# Add handler for proc entry.
+	if { [ catch { trace add execution $procName [list enter] ::turtles::on_proc_enter } err ] } {
+		puts stderr "Failed to add enter trace for '$procName' [info commands $procName] \{$commandString\}: $err"
+	}
+	# Add handler for proc exit.
+	if { [ catch { trace add execution $procName [list leave] ::turtles::on_proc_leave } err ] } {
+		puts stderr "Failed to add leave trace for '$procName' [info commands $procName] \{$commandString\}: $err"
 	}
 }
 
@@ -151,8 +162,7 @@ proc ::turtles::release_the_turtles {{finalDB "turtles-[clock microseconds].db"}
 
 	# Initialize an empty list of procs being traced.
 	set ::turtles::tracedProcs [list]
-	# Create a stack for keeping track of trace IDs during execution.
-	::struct::stack ::turtles::traceIds
+	# Add a trigger for the proc command to add a handler for the newly defined proc.
 	trace add execution proc [list leave] ::turtles::on_proc_define_add_trace
 }
 
