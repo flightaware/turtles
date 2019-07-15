@@ -149,7 +149,7 @@ proc ::turtles::persistence::update_call {callerId calleeId traceId timeLeave} {
 	thread::send -async $::turtles::persistence::recorder [subst {
 		::turtles::persistence::stage0 eval {
 			UPDATE call_pts SET time_leave = $timeLeave
-			WHERE caller_id = $callerId AND callee_id = $calleeId AND trace_id = $traceId;
+			WHERE caller_id = $callerId AND callee_id = $calleeId AND trace_id = $traceId AND time_leave IS NULL;
 		}
 	}]
 }
