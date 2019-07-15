@@ -114,14 +114,14 @@ proc ::turtles::persistence::init_views {stage} {
 # \param[in] procId proc name hash
 # \param[in] procName proc name
 # \param[in] timeDefined the epoch time in microseconds at which the proc definition was invoked
-proc ::turtles::persistence::add_proc_id {procId procName timeDefined} {
+proc ::turtles::persistence::add_proc_id {procId procName timeDefined {awaiter {}}} {
 	thread::send -async $::turtles::persistence::recorder [subst {
 		::turtles::persistence::stage0 eval {
 			INSERT INTO proc_ids (proc_id, proc_name, time_defined)
 			VALUES($procId, '$procName', $timeDefined)
 			ON CONFLICT DO NOTHING;
 		}
-	}]
+	}] $awaiter
 }
 
 ## Adds a call point to the call point table in the stage 0 persistence DB to record proc entry.
@@ -130,13 +130,13 @@ proc ::turtles::persistence::add_proc_id {procId procName timeDefined} {
 # \param[in] calleeId proc name hash of the callee, i.e., the function of interest
 # \param[in] traceId identifier disambiguating calls on the same caller-callee edge in the call graph
 # \param[in] timeEnter the epoch time in microseconds at which the proc entry handler was triggered
-proc ::turtles::persistence::add_call {callerId calleeId traceId timeEnter} {
+proc ::turtles::persistence::add_call {callerId calleeId traceId timeEnter {awaiter {}}} {
 	thread::send -async $::turtles::persistence::recorder [subst {
 		::turtles::persistence::stage0 eval {
 			INSERT INTO call_pts (caller_id, callee_id, trace_id, time_enter)
 			VALUES($callerId, $calleeId, $traceId, $timeEnter);
 		}
-	}]
+	}] $awaiter
 }
 
 ## Updates a previously added call point in the call point table in the stage 0 persistence DB to record proc exit.
@@ -145,13 +145,13 @@ proc ::turtles::persistence::add_call {callerId calleeId traceId timeEnter} {
 # \param[in] calleeId proc name hash of the callee, i.e., the function of interest
 # \param[in] traceId identifier disambiguating calls on the same caller-callee edge in the call graph
 # \param[in] timeLeave the epoch time in microseconds at which the proc exit handler was triggered
-proc ::turtles::persistence::update_call {callerId calleeId traceId timeLeave} {
+proc ::turtles::persistence::update_call {callerId calleeId traceId timeLeave {awaiter {}}} {
 	thread::send -async $::turtles::persistence::recorder [subst {
 		::turtles::persistence::stage0 eval {
 			UPDATE call_pts SET time_leave = $timeLeave
 			WHERE caller_id = $callerId AND callee_id = $calleeId AND trace_id = $traceId AND time_leave IS NULL;
 		}
-	}]
+	}] $awaiter
 }
 
 ## The self-perpetuating worker that continually transfers ephemeral trace information to the finalized DB.
