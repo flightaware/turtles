@@ -29,17 +29,19 @@ with_persistence_test {} staged 50 {
 	turtles::persistence::add_proc_id 1 ::one [clock microseconds]
 	turtles::persistence::add_call 0 1 0 [clock microseconds]
 	after 25
-	turtles::persistence::update_call 0 1 0 [clock microseconds] awaiter
+	turtles::persistence::update_call 0 1 0 [clock microseconds] ::await_update
 	# Since call is async thread::send, need to wait for call to actually be executed
 	# to check if corresponding finalization has occurred.
-	vwait awaiter
-	after 50
+	vwait ::await_update
+	# Double the purported finalize interval for engineering slop.
+	# There may be a lower bound on the Tcl event loop in terms of resolution.
+	after 100
 	thread::send $::turtles::persistence::recorder {
 		return [::turtles::persistence::stage1 eval {
 			SELECT calls FROM calls_by_caller_callee WHERE caller_name = '' AND callee_name = '::one';
 		}]
 	} result
-	return 0
+	return $result
 	#$result
 } 1
 
