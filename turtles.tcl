@@ -49,7 +49,9 @@ proc ::turtles::on_proc_enter {commandString op} {
 	# Set time of entry as close to function entry as possible to avoid adding overhead to accounting.
 	set timeEnter [ clock microseconds ]
 	# Record entry into proc.
-	puts stderr "\[$timeEnter:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
+	if { [info exists ::turtles::debug] } {
+		puts stderr "\[$timeEnter:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
+	}
 	::turtles::persistence::add_call $callerId $calleeId $traceId $timeEnter
 }
 
@@ -87,7 +89,9 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 	# The trace ID is a hash of the caller, callee, source line, and current thread.
 	set traceId [ ::turtles::hashing::hash_int_list [list $callerId $calleeId $srcLine $threadId] ]
 	# Record exit from proc.
-	puts stderr "\[$timeLeave:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
+	if { [info exists ::turtles::debug] } {
+		puts stderr "\[$timeLeave:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
+	}
 	::turtles::persistence::update_call $callerId $calleeId $traceId $timeLeave
 }
 
