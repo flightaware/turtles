@@ -111,6 +111,10 @@ proc ::turtles::persistence::init_views {stage} {
 
 ## Adds a proc id to the proc id table in the stage 0 persistence DB.
 #
+# NB: If there is a conflict, i.e., if the given procId and/or procName
+# already exist in the stage 0 persistence DB proc_ids table, the existing
+# record will NOT be overwritten, and the proc will swallow the conflict.
+#
 # \param[in] procId proc name hash
 # \param[in] procName proc name
 # \param[in] timeDefined the epoch time in microseconds at which the proc definition was invoked
