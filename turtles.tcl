@@ -120,6 +120,12 @@ proc ::turtles::on_proc_define_add_trace {commandString code result op} {
 	}
 }
 
+## Helper doing the actual work of adding a proc trace for a given proc.
+#
+# This is called by the handler \c ::turtles::on_proc_define_add_trace.
+# It does the actual work of setting up the proc entry and exit handlers.
+#
+# \param[in] procName the name of the proc to instrument
 proc ::turtles::add_proc_trace {procName} {
 	# Calculate the proc ID hash and set the time defined.
 	set procId [::turtles::hashing::hash_string $procName]
@@ -130,10 +136,11 @@ proc ::turtles::add_proc_trace {procName} {
 	# Add handler for proc entry.
 	if { [ catch { trace add execution $procName [list enter] ::turtles::on_proc_enter } err ] } {
 		puts stderr "Failed to add enter trace for '$procName' [info commands $procName] \{$commandString\}: $err"
-	}
-	# Add handler for proc exit.
-	if { [ catch { trace add execution $procName [list leave] ::turtles::on_proc_leave } err ] } {
-		puts stderr "Failed to add leave trace for '$procName' [info commands $procName] \{$commandString\}: $err"
+	} else {
+		# Add handler for proc exit iff the handler for entry was successfully installed.
+		if { [ catch { trace add execution $procName [list leave] ::turtles::on_proc_leave } err ] } {
+			puts stderr "Failed to add leave trace for '$procName' [info commands $procName] \{$commandString\}: $err"
+		}
 	}
 }
 
