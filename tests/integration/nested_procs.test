@@ -1,0 +1,43 @@
+#!/usr/bin/env tclsh
+
+set testDirectory [file join [file dirname [file normalize [info script]]]] 
+source [file join $testDirectory helpers.tcl]
+
+with_turtles "Nested proc trace" staged 50 {
+	proc a {} {
+		return [b]
+	}
+	
+	proc b {} {
+		return 0
+	}
+
+	b
+	a
+	after 100
+	test_caller_callee_count {stage1} {} {::b} 1
+	test_caller_callee_count {stage1} {} {::a} 1
+	test_caller_callee_count {stage1} {::a} {::b} 1
+	return 1
+}
+
+with_turtles "Nested proc trace" direct 50 {
+	proc a {} {
+		return [b]
+	}
+	
+	proc b {} {
+		return 0
+	}
+
+	b
+	a
+
+	test_caller_callee_count {stage0} {} {::b} 1
+	test_caller_callee_count {stage0} {} {::a} 1
+	test_caller_callee_count {stage0} {::a} {::b} 1
+	return 1
+}
+
+
+cleanupTests

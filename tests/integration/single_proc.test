@@ -1,0 +1,21 @@
+#!/usr/bin/env tclsh
+
+set testDirectory [file join [file dirname [file normalize [info script]]]] 
+source [file join $testDirectory helpers.tcl]
+
+with_turtles "Single proc trace" staged 50 {
+	proc noop {} { return }
+	noop
+	after 100
+	test_caller_callee_count stage1 {} {::noop} 1
+	return 1
+}
+
+with_turtles "Single proc trace" direct 50 {
+	proc noop {} { return }
+	noop
+	test_caller_callee_count stage0 {} {::noop} 1
+	return 1
+}
+
+cleanupTests

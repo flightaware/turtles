@@ -49,7 +49,8 @@ all:
 
 install: install-package install-docs
 
-test-package: tests/all.tcl tests/*.test
+test-package: tests/all.tcl tests/*.test \
+              tests/integration/helpers.tcl tests/integration/*.test
 	@cd tests && tclsh all.tcl
 
 pkgIndex.tcl: $(shell find . -name '*.tcl' | grep -v pkgIndex.tcl)
