@@ -49,7 +49,9 @@ all:
 
 install: install-package install-docs
 
-test-package: tests/all.tcl tests/*.test \
+test-package: tests/all.tcl \
+	      tests/unit/*.test \
+	      tests/functional/*.test \
               tests/integration/helpers.tcl tests/integration/*.test
 	@cd tests && tclsh all.tcl
 
