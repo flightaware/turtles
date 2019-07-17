@@ -1,0 +1,13 @@
+## \file handle.test
+
+package require tcltest
+namespace import ::tcltest::*
+
+set testDirectory [file join [file dirname [file normalize [info script]]]] 
+source ../kmm.tcl
+source ../bale/handle.tcl
+
+test -body {
+	set procs [dict create]
+	puts [turtles::bale::handle::find_moe procs [list]]
+} -result [dict create {find_moe} [dict create] {test_moe} [dict create] ]
