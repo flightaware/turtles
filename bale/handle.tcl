@@ -24,7 +24,7 @@ proc ::turtles::bale::handle::init_proc_node {procId procName} {
 				 root $procId \
 				 parent $procId \
 				 children [list] \
-				 moe {$procId $procId 0} \
+				 moe [list $procId $procId 0] \
 				 awaiting 0 ]
 }
 
@@ -138,10 +138,11 @@ proc ::turtles::bale::handle::test_moe {procsRef args} {
 		if { [dict exists $procs $fromId outerEdges] &&
 			 [dict exists $procs $fromId parent] &&
 			 [dict exists $procs $fromId moe] } {
-			dict with proc $fromId {
+			dict with procs $fromId {
 				if { [llength $outerEdges] == 0 } {
 					# proc has no outgoing edges
-					dict update msgv {found_moe} _msg { dict lappend _msg [machine_hash $parent] $moe }
+					# NB: root check is done in found_moe. It's ok to send found_moe to parent from here when parent is root.
+					dict update msgv {found_moe} _msg { dict lappend _msg [machine_hash $parent] $parent $moe }
 				} else {
 					# NB: outerEdges MUST be sorted already in descending order by edge weight (calls) for this to work.
 					lassign {toId _} [lindex $outerEdges 0]
@@ -164,7 +165,7 @@ proc ::turtles::bale::handle::req_root {procsRef args} {
 	# args: int int ...
 	foreach {fromId toId} $args {
 		if { [dict exists $procs $toId root] } {
-			dict with proc $toId {
+			dict with procs $toId {
 				dict update msgv {rsp_root} _msg { dict lappend _msg [machine_hash $fromId] $fromId $root }
 			}
 		}
