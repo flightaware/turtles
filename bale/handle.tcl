@@ -25,7 +25,8 @@ proc ::turtles::bale::handle::init_proc_node {procId procName} {
 				 parent $procId \
 				 children [list] \
 				 moe [list $procId $procId 0] \
-				 awaiting 0 ]
+				 awaiting 0 \
+				 state {IDLE} ]
 }
 
 ## Adds proc nodes to the dictionary of procs.
@@ -90,12 +91,16 @@ proc ::turtles::bale::handle::find_moe {procsRef cargs} {
 	# args: int ...
 	# Iterate over the list of targeted proc nodes to pass the find_moe message onto the node's children in the MST.
 	foreach procId $cargs {
-		if { [dict exists $procs $procId children] &&
-			 [dict exists $procs $procId awaiting] } {
+		if { [dict exists $procs $procId state] &&
+			 [dict exists $procs $procId awaiting] &&
+			 [dict exists $procs $procId children] } {
 			dict with procs $procId {
-					# Reset the awaiting counter to the number of children from
+				# State check - only proceed if in valid state for this message.
+				if { $state != {IDLE} } { continue }
+				# Reset the awaiting counter to the number of children from
 				# which the proc node expects messages plus 1 for itself.
 				set awaiting [ expr { [llength $children] + 1 } ]
+				set state {WAIT_MOE}
 				if { $awaiting == 1 } {
 					dict update msgv {test_moe} _msg { dict lappend _msg [machine_hash $procId] $procId }
 				} else {
@@ -135,10 +140,13 @@ proc ::turtles::bale::handle::test_moe {procsRef args} {
 	set msgv [init_msgv {found_moe} {req_root}]
 	# args: int ...
 	foreach fromId $args {
-		if { [dict exists $procs $fromId outerEdges] &&
+		if { [dict exists $procs $fromId state] &&
+			 [dict exists $procs $fromId outerEdges] &&
 			 [dict exists $procs $fromId parent] &&
 			 [dict exists $procs $fromId moe] } {
 			dict with procs $fromId {
+				# State check - only proceed if in valid state for this message.
+				if { $state != {WAIT_MOE} } { continue }
 				if { [llength $outerEdges] == 0 } {
 					# proc has no outgoing edges
 					# NB: root check is done in found_moe. It's ok to send found_moe to parent from here when parent is root.
@@ -165,6 +173,8 @@ proc ::turtles::bale::handle::req_root {procsRef args} {
 	# args: int int ...
 	foreach {fromId toId} $args {
 		if { [dict exists $procs $toId root] } {
+			# No state check required here - this is a reflexive response that does not alter
+			# the state of the recipient.
 			dict with procs $toId {
 				dict update msgv {rsp_root} _msg { dict lappend _msg [machine_hash $fromId] $fromId $root }
 			}
@@ -183,10 +193,13 @@ proc ::turtles::bale::handle::rsp_root {procsRef args} {
 	set msgv [init_msgv {test_moe} {found_moe}]
 	# args: int int ...
 	foreach {procId rspRoot} $args {
-		if { [dict exists $procs $procId outerEdges] &&
+		if { [dict exists $procs $procId state] &&
+			 [dict exists $procs $procId outerEdges] &&
 			 [dict exists $procs $procId innerEdges] &&
 			 [dict exists $procs $procId root] } {
 			dict with procs $procId {
+				# State check - only proceed if in valid state for this message.
+				if { $state != {WAIT_MOE} } { continue }
 				if { $root eq $rspRoot } {
 					# Internal edge. Move on to next test.
 					lappend innerEdges [lindex $outerEdges 0]
@@ -215,13 +228,16 @@ proc ::turtles::bale::handle::found_moe {procsRef args} {
 	set msgv [init_msgv {test_moe} {found_moe}]
 	# args: int {int int int} ...
 	foreach {procId foundMOE} $args {
-		if { [dict exists $procs $procId awaiting] &&
+		if { [dict exists $procs $procId state] &&
+			 [dict exists $procs $procId awaiting] &&
 			 [dict exists $procs $procId moe] &&
 			 [dict exists $procs $procId parent] &&
 			 [dict exists $procs $procId procId] } {
 			lassign {callerId calleeId calls} $foundMOE
 			# Decrement the awaiting counter of the recipient.
 			dict with procs $procId {
+				# State check - only proceed if in valid state for this message.
+				if { $state != {WAIT_MOE} } { continue }
 				incr $awaiting -1
 				if { $callerId != $calleeId && calls > [lindex $moe 2] } {
 					set $moe $foundMOE
@@ -233,6 +249,7 @@ proc ::turtles::bale::handle::found_moe {procsRef args} {
 					# If so, move this proc node to the test subphase.
 					dict update msgv {test_moe} _msg { dict lappend _msg [machine_hash $procId] $procId }
 				} else if { $awaiting == 0 } {
+					set state {DONE_MOE}
 					if { $parent == $procId } {
 						# @TODO: MOE has been found for fragment. Initiate downcast of tree-wide MOE.
 					}

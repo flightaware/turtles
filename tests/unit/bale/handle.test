@@ -8,10 +8,13 @@ source ../kmm.tcl
 source ../bale/handle.tcl
 namespace import ::turtles::bale::handle::*
 
+set NOOP [init_proc_node 0 {::noop}]
+set NOOP_WAIT_MOE1 [dict replace $NOOP awaiting 1 state {WAIT_MOE}]
+set NOOP_DONE_MOE [dict replace $NOOP awaiting 0 state {DONE_MOE}]
 set PROCS_NONE [dict create]
 set PROCS_0_BLANK [dict create 0 [dict create]]
-set PROCS_0_NOOP [dict create 0 [init_proc_node 0 {::noop}]]
-
+set PROCS_0_NOOP [dict create 0 $NOOP]
+set PROCS_0_NOOP
 set CMDS_NONE [dict create]
 
 # Modified from https://wiki.tcl-lang.org/page/dictutils
@@ -54,10 +57,12 @@ test_handler_return find_moe [list] $PROCS_0_BLANK $PROCS_0_BLANK $CMDS_NONE
 test_handler_return find_moe [list] $PROCS_0_NOOP $PROCS_0_NOOP $CMDS_NONE
 test_handler_return find_moe [list 0] $PROCS_NONE $PROCS_NONE $CMDS_NONE
 test_handler_return find_moe [list 0] $PROCS_0_BLANK $PROCS_0_BLANK $CMDS_NONE
-test_handler_return find_moe [list 0] $PROCS_0_NOOP [dict set PROCS_0_NOOP 0 awaiting 1] [dict create {test_moe} [dict create 0 [list 0]]]
+# Valid case.
+test_handler_return find_moe [list 0] $PROCS_0_NOOP [dict create 0 $NOOP_WAIT_MOE1] [dict create {test_moe} [dict create 0 [list 0]]]
 # Degenerate cases to illustrate field requirements.
 test_handler_return find_moe [list 0] [dict remove $PROCS_0_NOOP 0 awaiting] [dict remove $PROCS_0_NOOP 0 awaiting] $CMDS_NONE
 test_handler_return find_moe [list 0] [dict remove $PROCS_0_NOOP 0 children] [dict remove $PROCS_0_NOOP 0 children] $CMDS_NONE
+test_handler_return find_moe [list 0] [dict remove $PROCS_0_NOOP 0 state] [dict remove $PROCS_0_NOOP 0 state] $CMDS_NONE
 
 # Testing test_moe
 test_handler_return test_moe [list] $PROCS_NONE $PROCS_NONE $CMDS_NONE
@@ -65,10 +70,10 @@ test_handler_return test_moe [list] $PROCS_0_BLANK $PROCS_0_BLANK $CMDS_NONE
 test_handler_return test_moe [list] $PROCS_0_NOOP $PROCS_0_NOOP $CMDS_NONE
 test_handler_return test_moe [list 0] $PROCS_NONE $PROCS_NONE $CMDS_NONE
 test_handler_return test_moe [list 0] $PROCS_0_BLANK $PROCS_0_BLANK $CMDS_NONE
-# No more awaiting...
-test_handler_return test_moe [list 0] $PROCS_0_NOOP $PROCS_0_NOOP [dict create {found_moe} [dict create 0 [list 0 [list 0 0 0]]]]
-# Waiting on self...
-test_handler_return test_moe [list 0] $PROCS_0_NOOP $PROCS_0_NOOP [dict create {found_moe} [dict create 0 [list 0 [list 0 0 0]]]]
+# Idle nodes cannot test.
+test_handler_return test_moe [list 0] $PROCS_0_NOOP $PROCS_0_NOOP $CMDS_NONE
+# Valid case.
+test_handler_return test_moe [list 0] [dict create 0 $NOOP_WAIT_MOE] [dict create 0 $NOOP_WAIT_MOE1] [dict create {found_moe} [dict create 0 [list 0 [list 0 0 0]]]]
 
 # Testing req_root
 test_handler_return req_root [list] [dict create] [dict create] [dict create]
