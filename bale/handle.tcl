@@ -11,7 +11,21 @@ namespace import ::turtles::kmm::*
 # This abstraction affords a means for unit-testing the handlers and checking the return
 # values and/or state of the proc node dictionary passed by name reference.
 namespace eval ::turtles::bale::handle {
-	namespace export add_proc add_call find_moe test_moe req_root rsp_root found_moe init_msgv
+	namespace export add_proc add_call find_moe test_moe req_root rsp_root found_moe init_msgv fix_msgv init_proc_node
+}
+
+proc ::turtles::bale::handle::init_proc_node {procId procName} {
+	return [ dict create \
+				 procId $procId \
+				 procName $procName \
+				 neighbors [dict create] \
+				 outerEdges [list] \
+				 innerEdges [list] \
+				 root $procId \
+				 parent $procId \
+				 children [list] \
+				 moe {$procId $procId 0} \
+				 awaiting 0 ]
 }
 
 ## Adds proc nodes to the dictionary of procs.
@@ -34,17 +48,7 @@ proc ::turtles::bale::handle::add_proc {procsRef cmdArgs} {
 	upvar $procsRef procs
 	# args: int string ...
 	foreach {procId procName} $cmdArgs {
-		dict set procs $procId [ dict create \
-									 procId $procId \
-									 procName $procName \
-									 neighbors [dict create] \
-									 outerEdges [list] \
-									 innerEdges [list] \
-									 root $procId \
-									 parent $procId \
-									 children [list] \
-									 moe {$procId $procId 0} \
-									 awaiting 0 ]
+		dict set procs $procId [init_proc_node $procId $procName]
 	}
 }
 
@@ -86,9 +90,10 @@ proc ::turtles::bale::handle::find_moe {procsRef cargs} {
 	# args: int ...
 	# Iterate over the list of targeted proc nodes to pass the find_moe message onto the node's children in the MST.
 	foreach procId $cargs {
-		if { [dict exists $procs $procId] } {
+		if { [dict exists $procs $procId children] &&
+			 [dict exists $procs $procId awaiting] } {
 			dict with procs $procId {
-				# Reset the awaiting counter to the number of children from
+					# Reset the awaiting counter to the number of children from
 				# which the proc node expects messages plus 1 for itself.
 				set awaiting [ expr { [llength $children] + 1 } ]
 				if { $awaiting == 1 } {
@@ -130,7 +135,9 @@ proc ::turtles::bale::handle::test_moe {procsRef args} {
 	set msgv [init_msgv {found_moe} {req_root}]
 	# args: int ...
 	foreach fromId $args {
-		if { [dict exists $procs $fromId] } {
+		if { [dict exists $procs $fromId outerEdges] &&
+			 [dict exists $procs $fromId parent] &&
+			 [dict exists $procs $fromId moe] } {
 			dict with proc $fromId {
 				if { [llength $outerEdges] == 0 } {
 					# proc has no outgoing edges
@@ -156,7 +163,7 @@ proc ::turtles::bale::handle::req_root {procsRef args} {
 	set msgv [init_msgv {rsp_root}]
 	# args: int int ...
 	foreach {fromId toId} $args {
-		if { [dict exists $procs $toId] } {
+		if { [dict exists $procs $toId root] } {
 			dict with proc $toId {
 				dict update msgv {rsp_root} _msg { dict lappend _msg [machine_hash $fromId] $fromId $root }
 			}
@@ -175,10 +182,13 @@ proc ::turtles::bale::handle::rsp_root {procsRef args} {
 	set msgv [init_msgv {test_moe} {found_moe}]
 	# args: int int ...
 	foreach {procId rspRoot} $args {
-		if { [dict exists $procs $procId] } {
+		if { [dict exists $procs $procId outerEdges] &&
+			 [dict exists $procs $procId innerEdges] &&
+			 [dict exists $procs $procId root] } {
 			dict with procs $procId {
 				if { $root eq $rspRoot } {
 					# Internal edge. Move on to next test.
+					lappend innerEdges [lindex $outerEdges 0]
 					set outerEdges [lrange $outerEdges 1 end]
 					dict update msgv {test_moe} _msg { dict lappend _msg [machine_hash $procId] $procId }
 				} else {
@@ -204,7 +214,10 @@ proc ::turtles::bale::handle::found_moe {procsRef args} {
 	set msgv [init_msgv {test_moe} {found_moe}]
 	# args: int {int int int} ...
 	foreach {procId foundMOE} $args {
-		if { [dict exists $procs $procId] } {
+		if { [dict exists $procs $procId awaiting] &&
+			 [dict exists $procs $procId moe] &&
+			 [dict exists $procs $procId parent] &&
+			 [dict exists $procs $procId procId] } {
 			lassign {callerId calleeId calls} $foundMOE
 			# Decrement the awaiting counter of the recipient.
 			dict with procs $procId {
@@ -223,6 +236,7 @@ proc ::turtles::bale::handle::found_moe {procsRef args} {
 						# @TODO: MOE has been found for fragment. Initiate downcast of tree-wide MOE.
 					}
 					else {
+						# Report subtree MOE to parent.
 						dict update msgv {found_moe} _msg { dict lappend _msg [machine_hash $parent] $parent $moe }
 					}
 				}
@@ -245,7 +259,7 @@ proc ::turtles::bale::handle::init_msgv {args} {
 }
 
 proc ::turtles::bale::handle::fix_msgv {msgv} {
-	return dict filter $msgv script {k v} { [dict size $v] != 0 }
+	return [ dict filter $msgv script {k v} { dict size $v } ]
 }
 
 package provide turtles::bale::handle 0.1
