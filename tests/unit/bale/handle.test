@@ -7,7 +7,40 @@ set testDirectory [file join [file dirname [file normalize [info script]]]]
 source ../kmm.tcl
 source ../bale/handle.tcl
 
-test -body {
-	set procs [dict create]
-	puts [turtles::bale::handle::find_moe procs [list]]
-} -result [dict create {find_moe} [dict create] {test_moe} [dict create] ]
+namespace import ::turtles::bale::handle::*
+
+proc test_handler_return {cmd cmdArgs procsIn {procsOut {}} {cmdsExpected {}}} {
+	test [subst {{$cmd}_return}] [subst {$cmd $cmdArgs}] -body {
+		set cmdsActual [$cmd procsIn $cmdArgs]
+		return $cmdsActual
+	} -result $cmdsExpected
+}
+
+# Testing add_proc
+test_handler_return add_proc [list] [dict create] [dict create]
+
+# Testing add_call
+test_handler_return add_call [list] [dict create] [dict create]
+
+# Testing find_moe
+test_handler_return find_moe [list] [dict create] [dict create] [dict create]
+test_handler_return find_moe [list 0 1] [dict create] [dict create] [dict create]
+
+# Testing test_moe
+test_handler_return test_moe [list] [dict create] [dict create] [dict create]
+test_handler_return test_moe [list 0 1] [dict create] [dict create] [dict create]
+
+# Testing req_root
+test_handler_return req_root [list] [dict create] [dict create] [dict create]
+test_handler_return req_root [list 0 1] [dict create] [dict create] [dict create]
+
+# Testing rsp_root
+test_handler_return req_root [list] [dict create] [dict create] [dict create]
+test_handler_return req_root [list 0 1] [dict create] [dict create] [dict create]
+
+# Testing found_moe
+test_handler_return found_moe [list] [dict create] [dict create] [dict create]
+test_handler_return found_moe [list 0 1] [dict create] [dict create] [dict create]
+
+
+cleanupTests
