@@ -128,14 +128,35 @@ test_handler_return rsp_root [list 0 1] [dict remove $PROCS_1_WAIT_E1 0 neighbor
 test_handler_return rsp_root [list 0 1] [dict remove $PROCS_1_WAIT_E1 0 roots] [dict remove $PROCS_1_WAIT_E1 0 roots] $CMDS_NONE
 
 # Testing found_moe
-test_handler_return found_moe [list] [dict create] [dict create] [dict create]
-test_handler_return found_moe [list 0 1] [dict create] [dict create] [dict create]
+test_handler_return found_moe [list] $PROCS_NONE $PROCS_NONE $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 1 1]] $PROCS_NONE $PROCS_NONE $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 0 0]] $PROCS_NONE $PROCS_NONE $CMDS_NONE
+
+test_handler_return found_moe [list] $PROCS_1_BLANK $PROCS_1_BLANK $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 1 1]] $PROCS_1_BLANK $PROCS_1_BLANK $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 0 0]] $PROCS_1_BLANK $PROCS_1_BLANK $CMDS_NONE
+
+test_handler_return found_moe [list] $PROCS_1_IDLE_E0 $PROCS_1_IDLE_E0 $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 1 1]] $PROCS_1_IDLE_E0 $PROCS_1_IDLE_E0 $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 0 0]] $PROCS_1_IDLE_E0 $PROCS_1_IDLE_E0 $CMDS_NONE
+
+test_handler_return found_moe [list] $PROCS_1_IDLE_E1 $PROCS_1_IDLE_E1 $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 1 1]] $PROCS_1_IDLE_E1 $PROCS_1_IDLE_E1 $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 0 0]] $PROCS_1_IDLE_E1 $PROCS_1_IDLE_E1 $CMDS_NONE
+
+# Valid cases.
+
 # Degnenerate cases to illustrate field requirements.
-test_handler_return found_moe [list 0 0] [dict remove $PROCS_1_WAIT_E1 0 state] [dict remove $PROCS_1_WAIT_E1 0 state] $CMDS_NONE
-test_handler_return found_moe [list 0 0] [dict remove $PROCS_1_WAIT_E1 0 awaiting] [dict remove $PROCS_1_WAIT_E1 0 awaiting] $CMDS_NONE
-test_handler_return found_moe [list 0 0] [dict remove $PROCS_1_WAIT_E1 0 moe] [dict remove $PROCS_1_WAIT_E1 0 moe] $CMDS_NONE
-test_handler_return found_moe [list 0 0] [dict remove $PROCS_1_WAIT_E1 0 parent] [dict remove $PROCS_1_WAIT_E1 0 parent] $CMDS_NONE
-test_handler_return found_moe [list 0 0] [dict remove $PROCS_1_WAIT_E1 0 procId] [dict remove $PROCS_1_WAIT_E1 0 procId] $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 1 1]] [dict remove $PROCS_1_WAIT_E1 0 state] [dict remove $PROCS_1_WAIT_E1 0 state] $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 1 1]] [dict remove $PROCS_1_WAIT_E1 0 awaiting] [dict remove $PROCS_1_WAIT_E1 0 awaiting] $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 1 1]] [dict remove $PROCS_1_WAIT_E1 0 moe] [dict remove $PROCS_1_WAIT_E1 0 moe] $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 1 1]] [dict remove $PROCS_1_WAIT_E1 0 parent] [dict remove $PROCS_1_WAIT_E1 0 parent] $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 1 1]] [dict remove $PROCS_1_WAIT_E1 0 procId] [dict remove $PROCS_1_WAIT_E1 0 procId] $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 0 0]] [dict remove $PROCS_1_WAIT_E1 0 state] [dict remove $PROCS_1_WAIT_E1 0 state] $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 0 0]] [dict remove $PROCS_1_WAIT_E1 0 awaiting] [dict remove $PROCS_1_WAIT_E1 0 awaiting] $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 0 0]] [dict remove $PROCS_1_WAIT_E1 0 moe] [dict remove $PROCS_1_WAIT_E1 0 moe] $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 0 0]] [dict remove $PROCS_1_WAIT_E1 0 parent] [dict remove $PROCS_1_WAIT_E1 0 parent] $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 0 0]] [dict remove $PROCS_1_WAIT_E1 0 procId] [dict remove $PROCS_1_WAIT_E1 0 procId] $CMDS_NONE
 
 
 cleanupTests
