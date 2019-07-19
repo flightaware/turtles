@@ -113,6 +113,12 @@ test_handler_return rsp_root [list 0 1] $PROCS_0_NOOP_IDLE $PROCS_0_NOOP_IDLE $C
 # Valid cases
 test_handler_return rsp_root [list 0 0] $PROCS_0_NOOP_E1_WAIT_MOE1 $PROCS_0_NOOP_E1_WAIT_MOE1 [dict create {test_moe} [dict create 0 [list 0]]]
 test_handler_return rsp_root [list 0 1] $PROCS_0_NOOP_E1_WAIT_MOE1 $PROCS_0_NOOP_E1_WAIT_MOE1 [dict create {found_moe} [dict create 0 [list 0 [list 0 1 1]]]]
+# Degnenerate cases to illustrate field requirements.
+test_handler_return rsp_root [list 0 0] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 state] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 state] $CMDS_NONE
+test_handler_return rsp_root [list 0 0] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 innerEdges] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 innerEdges] $CMDS_NONE
+test_handler_return rsp_root [list 0 0] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 outerEdges] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 outerEdges] $CMDS_NONE
+test_handler_return rsp_root [list 0 0] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 neighbors] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 neighbors] $CMDS_NONE
+test_handler_return rsp_root [list 0 0] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 roots] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 roots] $CMDS_NONE
 
 # Testing found_moe
 test_handler_return found_moe [list] [dict create] [dict create] [dict create]
