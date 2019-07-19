@@ -123,6 +123,12 @@ test_handler_return rsp_root [list 0 0] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 
 # Testing found_moe
 test_handler_return found_moe [list] [dict create] [dict create] [dict create]
 test_handler_return found_moe [list 0 1] [dict create] [dict create] [dict create]
+# Degnenerate cases to illustrate field requirements.
+test_handler_return found_moe [list 0 0] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 state] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 state] $CMDS_NONE
+test_handler_return found_moe [list 0 0] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 awaiting] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 awaiting] $CMDS_NONE
+test_handler_return found_moe [list 0 0] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 moe] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 moe] $CMDS_NONE
+test_handler_return found_moe [list 0 0] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 parent] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 parent] $CMDS_NONE
+test_handler_return found_moe [list 0 0] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 procId] [dict remove $PROCS_0_NOOP_E1_WAIT_MOE1 0 procId] $CMDS_NONE
 
 
 cleanupTests
