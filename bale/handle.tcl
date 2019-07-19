@@ -84,13 +84,13 @@ proc ::turtles::bale::handle::add_call {procsRef cmdArgs} {
 #
 # \param[in] procsRef a name reference to the worker's dictionary of proc nodes
 # \param[in] a \c procId list corresponding to the roots of subtrees to search
-proc ::turtles::bale::handle::find_moe {procsRef cargs} {
+proc ::turtles::bale::handle::find_moe {procsRef cmdArgs} {
 	upvar $procsRef procs
 	# Initialize the buffers of find_moe and test_moe messages to send.
 	set msgv [init_msgv {find_moe} {test_moe}]
 	# args: int ...
 	# Iterate over the list of targeted proc nodes to pass the find_moe message onto the node's children in the MST.
-	foreach procId $cargs {
+	foreach procId $cmdArgs {
 		if { [dict exists $procs $procId state] &&
 			 [dict exists $procs $procId awaiting] &&
 			 [dict exists $procs $procId children] } {
@@ -134,12 +134,12 @@ proc ::turtles::bale::handle::find_moe {procsRef cargs} {
 #
 # \param[in] procsRef a name reference to the worker's dictionary of proc nodes
 # \param[in] a \c procId list of proc nodes to perform local MOE tests
-proc ::turtles::bale::handle::test_moe {procsRef args} {
+proc ::turtles::bale::handle::test_moe {procsRef cmdArgs} {
 	upvar $procsRef procs
 	# Initialize the buffer of found_moe messages to send.
 	set msgv [init_msgv {found_moe} {req_root}]
 	# args: int ...
-	foreach fromId $args {
+	foreach fromId $cmdArgs {
 		if { [dict exists $procs $fromId state] &&
 			 [dict exists $procs $fromId outerEdges] &&
 			 [dict exists $procs $fromId parent] &&
@@ -166,12 +166,12 @@ proc ::turtles::bale::handle::test_moe {procsRef args} {
 #
 # \param[in] procsRef a name reference to the worker's dictionary of proc nodes
 # \param[in] args a list with {int int} stride indicating sender and recipient, respectively
-proc ::turtles::bale::handle::req_root {procsRef args} {
+proc ::turtles::bale::handle::req_root {procsRef cmdArgs} {
 	upvar $procsRef procs
 	# Initialize the buffer of rsp_root messages to send.
 	set msgv [init_msgv {rsp_root}]
 	# args: int int ...
-	foreach {fromId toId} $args {
+	foreach {fromId toId} $cmdArgs {
 		if { [dict exists $procs $toId root] } {
 			# No state check required here - this is a reflexive response that does not alter
 			# the state of the recipient.
@@ -187,12 +187,12 @@ proc ::turtles::bale::handle::req_root {procsRef args} {
 #
 # \param[in] procsRef a name reference to the worker's dictionary of proc nodes
 # \param[in] args a list with {int int} stride indicating original sender and recipient root id, respectively.
-proc ::turtles::bale::handle::rsp_root {procsRef args} {
+proc ::turtles::bale::handle::rsp_root {procsRef cmdArgs} {
 	upvar $procsRef procs
 	# Initialize the buffer of found_moe messages to send.
 	set msgv [init_msgv {test_moe} {found_moe}]
 	# args: int int ...
-	foreach {procId rspRoot} $args {
+	foreach {procId rspRoot} $cmdArgs {
 		if { [dict exists $procs $procId state] &&
 			 [dict exists $procs $procId outerEdges] &&
 			 [dict exists $procs $procId innerEdges] &&
@@ -222,12 +222,12 @@ proc ::turtles::bale::handle::rsp_root {procsRef args} {
 #
 # \param[in] procsRef a name reference to the worker's dictionary of proc nodes
 # \params args a list with {int {int int int}} stride indicating the subtree root and the branch MOE, respectively
-proc ::turtles::bale::handle::found_moe {procsRef args} {
+proc ::turtles::bale::handle::found_moe {procsRef cmdArgs} {
 	upvar $procsRef procs
 	# Initialize the buffer of test_moe messages to send.
 	set msgv [init_msgv {test_moe} {found_moe}]
 	# args: int {int int int} ...
-	foreach {procId foundMOE} $args {
+	foreach {procId foundMOE} $cmdArgs {
 		if { [dict exists $procs $procId state] &&
 			 [dict exists $procs $procId awaiting] &&
 			 [dict exists $procs $procId moe] &&
