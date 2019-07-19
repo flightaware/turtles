@@ -36,27 +36,42 @@ set PROCS_1_DONE_E1 [dict create 0 $NOOP_DONE_E1]
 set CMDS_NONE [dict create]
 
 # Modified from https://wiki.tcl-lang.org/page/dictutils
-proc dict_equal {d1 d2} {
+proc dict_eq {d1 d2} {
 	if { [ lsort [ dict keys $d1 ] ] != [lsort [ dict keys $d2 ] ] } { return 0 }
 	dict for {k1 v1} $d1 {
 		if { ![ dict exists $d2 $k1] } { return 0 }
 		set v2 [dict get $d2 $k1]
 		catch {
+			# Attempt dictionary operations on the values.
 			dict size $v1
 			dict size $v2
-			if { ![ dict_equal $v1 $v2 ] } { return 0 }
+			# If we can pretend it's a dictionary, let's do it!
+			# The result should be the same whether it's compared
+			# as a string or dictionary or list.
+			if { ![ dict_eq $v1 $v2 ] } { return 0 }
 		} err {
-			if { v1 != v2 } { return 0 }
+			# One of 'em is not a dictionary.
+			# Try simple equality test.
+			if { $v1 != $v2 } { return 0 }
 		}
 	}
 	return 1
 }
 
+# dict_eq self-check
+test dict_eq {{} == {}} -body { dict_eq [dict create] [dict create] } -result 1
+test dict_eq {"" == ""} -body { dict_eq "" "" } -result 1
+test dict_eq {[list] == [list]} -body { dict_eq [list] [list] } -result 1
+test dict_eq {{} != {0 0}} -body { dict_eq [dict create] [dict create 0 0] } -result 0
+test dict_eq {{0 0} == {0 0}} -body { dict_eq [dict create 0 0] [dict create 0 0] } -result 1
+test dict_eq {[0 0] == [0 0]} -body { dict_eq [list 0 0] [list 0 0] } -result 1
+test dict_eq {[0 0] == [0 0]} -body { dict_eq [list 0 0] [list 0 0] } -result 1
+
 proc test_handler_return {cmd cmdArgs procsActual {procsExpected {}} {cmdsExpected {}}} {
 	set ::turtles::kmm::machines 2
 	test [subst {{$cmd}_return}] [subst {$cmd $cmdArgs}] -body {
 		set cmdsActual [$cmd procsActual $cmdArgs]
-		if { ![ dict_equal $procsActual $procsExpected ] } {
+		if { ![ dict_eq $procsActual $procsExpected ] } {
 			error "Unexpected state change!\nExpected: $procsExpected\nActual: $procsActual"
 		}
 		return $cmdsActual
