@@ -35,8 +35,8 @@ proc ::turtles::bale::handle::init_proc_node {procId procName} {
 # * \c procId: the proc name hash
 # * \c procName: the fully-qualified
 # * \c neighbors: a dictionary of neighbors. Each neighbor is represented as a {int int} list indicating the other edge terminus and weight, respectively.
-# * \c outerEdges: a list of edges radiating out of the MST fragment from the proc node
-# * \c innerEdges: a list of edges connecting other nodes within the MST fragment to the proc node
+# * \c outerEdges: a list of adjacent node labels outside of the node's current MST fragment
+# * \c innerEdges: a list of adjacent node labels within the node's current MST fragment
 # * \c root: the \c procId of the MST fragment root which coordinates downcast and convergecast within the fragment
 # * \c parent: the \c procId of the proc node's immediate parent in the MST. A root node is its own parent.
 # * \c children: a \c procId list of the proc node's children in the MST
@@ -153,7 +153,7 @@ proc ::turtles::bale::handle::test_moe {procsRef cmdArgs} {
 					dict update msgv {found_moe} _msg { dict lappend _msg [machine_hash $parent] $parent $moe }
 				} else {
 					# NB: outerEdges MUST be sorted already in descending order by edge weight (calls) for this to work.
-					lassign {toId _} [lindex $outerEdges 0]
+					set toId [lindex $outerEdges 0]
 					dict update msgv {req_root} _msg { dict lappend _msg [machine_hash $toId] $fromId $toId }
 				}
 			}
@@ -198,8 +198,8 @@ proc ::turtles::bale::handle::rsp_root {procsRef cmdArgs} {
 			 [dict exists $procs $procId innerEdges] &&
 			 [dict exists $procs $procId root] } {
 			dict with procs $procId {
-				# State check - only proceed if in valid state for this message.
-				if { $state != {WAIT_MOE} } { continue }
+				# State check - only proceed if in valid state for this message and there are outer edges to work with.
+				if { $state != {WAIT_MOE} || [llength $outerEdges] == 0 } { continue }
 				if { $root eq $rspRoot } {
 					# Internal edge. Move on to next test.
 					lappend innerEdges [lindex $outerEdges 0]
@@ -207,7 +207,8 @@ proc ::turtles::bale::handle::rsp_root {procsRef cmdArgs} {
 					dict update msgv {test_moe} _msg { dict lappend _msg [machine_hash $procId] $procId }
 				} else {
 					# Outgoing edge. 
-					lassign {calleeId calls} [lindex $outerEdges 0]
+					set calleeId [lindex $outerEdges 0]
+					set calls [dict get $neighbors $calleeId]
 					# Enqueue a found message to itself. That way we don't have to copy paste the comparison logic.
 					dict update msgv {found_moe} _msg { dict lappend _msg [machine_hash $procId] $procId [list $procId $calleeId $calls] }
 				}
