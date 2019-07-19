@@ -264,10 +264,23 @@ proc ::turtles::bale::handle::found_moe {procsRef cmdArgs} {
 	return [fix_msgv $msgv]
 }
 
+## Generic default handler for invalid command types.
+#
+# NB: This throws an error. Perhaps it would be better to provide some sort of notification rather than
+# creating a scenario where an invalid command could tank a k-machine participant.
+#
+# \param[in] cmd the invalid command
+# \param[in] args the putative args associated with the invalid command
 proc ::turtles::bale::handle::invalid_cmd {cmd args} {
 	error "::turtles::bale::handle ($::turtles::kmm::myself/$::turtles::kmm::machines): unknown command '$cmd'"
 }
 
+## Initializes a command message return structure for event handlers.
+#
+# The structure is populated as a dictionary of dictionaries keyed first
+# by command type and next by k-machine model identifier.
+#
+# \param[in] args variadic list of command types
 proc ::turtles::bale::handle::init_msgv {args} {
 	set msgv [dict create]
 	foreach key $args {
@@ -275,7 +288,13 @@ proc ::turtles::bale::handle::init_msgv {args} {
 	}
 	return $msgv
 }
-
+## Strips command type entries from a command message return structure
+# in the case where there are no messages to be sent of that command type.
+#
+# This obviates unnecessary thread communication between k-machine model
+# participants when there is no work to be done.
+#
+# \param[in] msgv the command message return structure to be pruned
 proc ::turtles::bale::handle::fix_msgv {msgv} {
 	return [ dict filter $msgv script {k v} { dict size $v } ]
 }
