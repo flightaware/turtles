@@ -17,6 +17,7 @@ set NOOP_DONE_E0 [dict replace $NOOP_IDLE_E0 awaiting 0 state {DONE_MOE}]
 # Simulates proc with neighbor on another "machine"
 set NOOP_IDLE_E1 [dict replace $NOOP_IDLE_E0 neighbors [dict create 1 1] outerEdges [list 1]]
 set NOOP_WAIT_E1 [dict replace $NOOP_IDLE_E1 awaiting 1 state {WAIT_MOE}]
+set NOOP_DONE_E1 [dict replace $NOOP_IDLE_E1 awaiting 0 state {DONE_MOE}]
 # No procs on the machine
 set PROCS_NONE [dict create]
 # Degenerate procs dict - key without value
@@ -25,6 +26,7 @@ set PROCS_1_IDLE_E0 [dict create 0 $NOOP_IDLE_E0]
 set PROCS_1_WAIT_E0 [dict create 0 $NOOP_WAIT_E0]
 set PROCS_1_IDLE_E1 [dict create 0 $NOOP_IDLE_E1]
 set PROCS_1_WAIT_E1 [dict create 0 $NOOP_WAIT_E1]
+set PROCS_1_DONE_E1 [dict create 0 $NOOP_DONE_E1]
 set CMDS_NONE [dict create]
 
 # Modified from https://wiki.tcl-lang.org/page/dictutils
@@ -145,6 +147,10 @@ test_handler_return found_moe [list 0 [list 0 1 1]] $PROCS_1_IDLE_E1 $PROCS_1_ID
 test_handler_return found_moe [list 0 [list 0 0 0]] $PROCS_1_IDLE_E1 $PROCS_1_IDLE_E1 $CMDS_NONE
 
 # Valid cases.
+#test_handler_return found_moe [list 0 [list 0 1 1]] $PROCS_1_WAIT_E2_C1 $PROCS_1_WAIT_E1_C1 [dict create {test_moe} [dict create 0 [list 0]]]
+#test_handler_return found_moe [list 0 [list 0 0 0]] $PROCS_1_WAIT_E2_C1 $PROCS_1_WAIT_E1_C1 [dict create {test_moe} [dict create 0 [list 0]]]
+test_handler_return found_moe [list 0 [list 0 1 1]] $PROCS_1_WAIT_E1 $PROCS_1_DONE_E1 $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 0 0]] $PROCS_1_WAIT_E1 $PROCS_1_DONE_E1 $CMDS_NONE
 
 # Degnenerate cases to illustrate field requirements.
 test_handler_return found_moe [list 0 [list 0 1 1]] [dict remove $PROCS_1_WAIT_E1 0 state] [dict remove $PROCS_1_WAIT_E1 0 state] $CMDS_NONE

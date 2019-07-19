@@ -235,13 +235,13 @@ proc ::turtles::bale::handle::found_moe {procsRef cmdArgs} {
 			 [dict exists $procs $procId moe] &&
 			 [dict exists $procs $procId parent] &&
 			 [dict exists $procs $procId procId] } {
-			lassign {callerId calleeId calls} $foundMOE
+			lassign $foundMOE callerId calleeId calls
 			# Decrement the awaiting counter of the recipient.
 			dict with procs $procId {
 				# State check - only proceed if in valid state for this message.
 				if { $state != {WAIT_MOE} } { continue }
-				incr $awaiting -1
-				if { $callerId != $calleeId && calls > [lindex $moe 2] } {
+				incr awaiting -1
+				if { $callerId != $calleeId && $calls > [lindex $moe 2] } {
 					set $moe $foundMOE
 				}
 				# Check if all the children have reported back.
@@ -250,12 +250,11 @@ proc ::turtles::bale::handle::found_moe {procsRef cmdArgs} {
 				if { $awaiting == 1 } {
 					# If so, move this proc node to the test subphase.
 					dict update msgv {test_moe} _msg { dict lappend _msg [machine_hash $procId] $procId }
-				} else if { $awaiting == 0 } {
+				} elseif { $awaiting == 0 } {
 					set state {DONE_MOE}
 					if { $parent == $procId } {
 						# @TODO: MOE has been found for fragment. Initiate downcast of tree-wide MOE.
-					}
-					else {
+					} else {
 						# Report subtree MOE to parent.
 						dict update msgv {found_moe} _msg { dict lappend _msg [machine_hash $parent] $parent $moe }
 					}
