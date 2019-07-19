@@ -196,6 +196,7 @@ proc ::turtles::bale::handle::rsp_root {procsRef cmdArgs} {
 		if { [dict exists $procs $procId state] &&
 			 [dict exists $procs $procId outerEdges] &&
 			 [dict exists $procs $procId innerEdges] &&
+			 [dict exists $procs $procId neighbors] &&
 			 [dict exists $procs $procId root] } {
 			dict with procs $procId {
 				# State check - only proceed if in valid state for this message and there are outer edges to work with.
