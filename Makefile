@@ -83,7 +83,7 @@ uninstall:
 	rm -rf $(DOCTARGET)
 
 clean: clean-docs
-	rm -f *~
+	find . -name '*~' | xargs rm -f
 
 clean-docs:
 	rm -rf $(DOCDIR)
