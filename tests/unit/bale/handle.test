@@ -84,9 +84,10 @@ test dict_eq {{0 {0 0} 1 {1 0}} != {0 {0 0} 1 {1 1}}} -body { dict_eq [dict crea
 proc test_handler_return {cmd cmdArgs procsActual {procsExpected {}} {cmdsExpected {}}} {
 	set ::turtles::kmm::machines 2
 	test [subst {{$cmd}_return}] [subst {$cmd $cmdArgs}] -body {
-		set cmdsActual [$cmd procsActual $cmdArgs]
-		if { ![ dict_eq $procsActual $procsExpected ] } {
-			error "Unexpected state change!\nExpected: $procsExpected\nActual: $procsActual"
+		set ::turtles::bale::procs $procsActual
+		set cmdsActual [$cmd $cmdArgs]
+		if { ![ dict_eq $::turtles::bale::procs $procsExpected ] } {
+			error "Unexpected state change!\nExpected: $procsExpected\nActual: $::turtles::bale::procs"
 		}
 		return $cmdsActual
 	} -result $cmdsExpected
