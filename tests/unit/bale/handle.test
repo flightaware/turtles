@@ -204,4 +204,9 @@ test_handler_return found_moe [list 0 [list 0 0 0]] [dict remove $PROCS_1_WAIT_E
 test_handler_return found_moe [list 0 [list 0 0 0]] [dict remove $PROCS_1_WAIT_E1 0 procId] [dict remove $PROCS_1_WAIT_E1 0 procId] $CMDS_NONE
 
 
+# Testing phase1_go
+
+test_handler_return phase1_go [list] $PROCS_NONE $PROCS_NONE $CMDS_NONE
+test_handler_return phase1_go [list] $PROCS_1_BLANK $PROCS_1_BLANK $CMDS_NONE
+
 cleanupTests

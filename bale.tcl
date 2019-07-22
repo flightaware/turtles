@@ -84,6 +84,9 @@ proc ::turtles::bale::worker {i k} {
 
 proc ::turtles::bale::recv {cmd cmdArgs} {
 	switch $cmd {
+		phase1_go { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::phase1_go $cmdArgs ] }
+		phase1_done { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::phase1_done $cmdArgs ] }
+
 		add_proc  { ::turtles::bale::handle::add_proc $cmdArgs }
 		add_call  { ::turtles::bale::handle::add_call $cmdArgs }
 		find_moe  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::find_moe  $cmdArgs ] }

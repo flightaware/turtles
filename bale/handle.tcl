@@ -11,7 +11,7 @@ namespace import ::turtles::kmm::*
 # This abstraction affords a means for unit-testing the handlers and checking the return
 # values and/or state of the proc node dictionary passed by name reference.
 namespace eval ::turtles::bale::handle {
-	namespace export add_proc add_call find_moe test_moe req_root rsp_root found_moe init_msgv fix_msgv init_proc_node
+	namespace export add_proc add_call phase1_go find_moe test_moe req_root rsp_root found_moe phase1_done init_msgv fix_msgv init_proc_node
 }
 
 proc ::turtles::bale::handle::init_proc_node {procId procName} {
@@ -196,7 +196,7 @@ proc ::turtles::bale::handle::rsp_root {cmdArgs} {
 					set outerEdges [lrange $outerEdges 1 end]
 					dict update msgv {test_moe} _msg { dict lappend _msg [machine_hash $procId] $procId }
 				} else {
-					# Outgoing edge. 
+					# Outgoing edge.
 					set calleeId [lindex $outerEdges 0]
 					set calls [dict get $neighbors $calleeId]
 					# Enqueue a found message to itself. That way we don't have to copy paste the comparison logic.
@@ -211,11 +211,12 @@ proc ::turtles::bale::handle::rsp_root {cmdArgs} {
 
 ## Triggers delivery of a subtree branch MOE to the subtree root.
 #
-# \params args a list with {int {int int int}} stride indicating the subtree root and the branch MOE, respectively
+# \params cmdArgs a list with {int {int int int}} stride indicating the subtree root and the branch MOE, respectively
 proc ::turtles::bale::handle::found_moe {cmdArgs} {
 	# Initialize the buffer of test_moe messages to send.
 	set msgv [init_msgv {test_moe} {found_moe}]
 	# args: int {int int int} ...
+	set unroots [list]
 	foreach {procId foundMOE} $cmdArgs {
 		if { [dict exists $::turtles::bale::procs $procId state] &&
 			 [dict exists $::turtles::bale::procs $procId awaiting] &&
@@ -240,7 +241,15 @@ proc ::turtles::bale::handle::found_moe {cmdArgs} {
 				} elseif { $awaiting == 0 } {
 					set state {DONE_MOE}
 					if { $parent == $procId } {
-						# @TODO: MOE has been found for fragment. Initiate downcast of tree-wide MOE.
+						# MOE has been found for fragment.
+						if { $procId != [lindex $moe 0] } {
+							# Add supplanted root ID to list of unroots.
+							lappend unroots $procId
+						}
+						# Prepare downcast of tree-wide MOE.
+						foreach childId $children {
+							dict update msgv {merge} _msg { dict lappend _msg [machine_hash $childId] $childId $moe }
+						}
 					} else {
 						# Report subtree MOE to parent.
 						dict update msgv {found_moe} _msg { dict lappend _msg [machine_hash $parent] $parent $moe }
@@ -249,7 +258,88 @@ proc ::turtles::bale::handle::found_moe {cmdArgs} {
 			}
 		}
 	}
+	# Remove supplanted roots.
+	foreach procId $unroots {
+		puts "**************** UNROOT $procId *****************"
+		dict unset ::turtles::bale::procs roots $procId
+	}
 	return [fix_msgv $msgv]
+}
+
+## Triggers delivery of confirmed MOE to subtree.
+#
+# \params cmdArgs a list with {int {int int int}} stride indicating the subtree root and global MOE, respectively
+proc ::turtles::bale::handle::down_moe {cmdArgs} {
+	set msgv [init_msgv {down_moe} {phase1_done}]
+	set newroots [list]
+	foreach {procId MOE} $cmdArgs {
+		if { [dict exists $::turtles::bale::procs $procId state] &&
+			 [dict exists $::turtles::bale::procs $procId root] &&
+			 [dict exists $::turtles::bale::procs $procId moe] } {
+			dict with ::turtles::bale::procs $procId {
+				if { $state != {DONE_MOE} } { continue }
+				# Set state to MERGE for next phase.
+				set state {MERGE}
+				set root [lindex $MOE 0]
+				set moe $MOE
+				if { $root != $procId } {
+					# Add MOE-incident node to list of supplanting roots.
+					lappend newroots $procId
+				}
+				# Decrement proc counter for phase 1.
+				incr ::turtles::bale::phase1ProcsLeft -1
+				# Prepare downcast of tree-wide MOE.
+				foreach childId $children {
+					dict update msgv {merge} _msg { dict lappend _msg [machine_hash $childId] $childId $moe }
+				}
+			}
+		}
+	}
+	# Remove supplanted roots.
+	foreach procId $newroots {
+		dict set ::turtles::bale::procs roots $procId {}
+	}
+
+	# Check if machine has finished notifying all procs of tree-wise MOE.
+	if { $::turtles::bale::phase1ProcsLeft == 0 } {
+		for {set i 0} {i < $::turtles::kmm::machines} {incr i} {
+			# Notify all other machines that this machine has finished phase 1 for all hosted proc nodes.
+			dict update msgv {phase1_done} _msg { dict lappend _msg $i $::turtles::kmm::myself }
+		}
+	}
+
+	return $msgv
+}
+
+proc ::turtles::bale::handle::phase1_go {cmdArgs} {
+	global ::turtles::bale::phase1ProcsLeft
+	global ::turtles::bale::phase1MachinesLeft
+	set ::turtles::bale::phase1ProcsLeft [dict size $::turtles::bale::procs]
+	set ::turtles::bale::phase1MachinesLeft $::turtles::kmm::machines
+	set findArgs [dict keys [dict get $::turtles::bale::procs roots]]
+	if { [llength $findArgs] > 0 } {
+		return [dict create {find_moe} [dict create $::turtles::kmm::myself $findArgs]]
+	} else {
+		return [dict create]
+	}
+}
+
+proc ::turtles::bale::handle::phase1_done {cmdArgs} {
+	incr ::turtles::bale::phase1MachinesLeft - 1
+	if { $::turtles::bale::phase1MachinesLeft == 0 } {
+		global ::turtles::bale::phase2ProcsLeft
+		global ::turtles::bale::phase2MachinesLeft
+		set ::turtles::bale::phase2ProcsLeft [dict size $::turtles::bale::procs]
+		set ::turtles::bale::phase2MachinesLeft $::turtles::kmm::machines
+		set mergeArgs [dict keys [dict get $::turtles::bale::procs roots]]
+		if { [llength $mergeArgs > 0] } {
+			return [dict create {merge} [dict create $::turtles::kmm::myself $mergeArgs]]
+		} else {
+			return [dict create]
+		}
+	} else {
+		return [dict create]
+	}
 }
 
 ## Generic default handler for invalid command types.
