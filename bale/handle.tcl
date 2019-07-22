@@ -325,14 +325,14 @@ proc ::turtles::bale::handle::phase1_go {cmdArgs} {
 }
 
 proc ::turtles::bale::handle::phase1_done {cmdArgs} {
-	incr ::turtles::bale::phase1MachinesLeft - 1
+	incr ::turtles::bale::phase1MachinesLeft -1
 	if { $::turtles::bale::phase1MachinesLeft == 0 } {
 		global ::turtles::bale::phase2ProcsLeft
 		global ::turtles::bale::phase2MachinesLeft
 		set ::turtles::bale::phase2ProcsLeft [dict size $::turtles::bale::procs]
 		set ::turtles::bale::phase2MachinesLeft $::turtles::kmm::machines
 		set mergeArgs [dict keys [dict get $::turtles::bale::procs roots]]
-		if { [llength $mergeArgs > 0] } {
+		if { [llength $mergeArgs] > 0 } {
 			return [dict create {merge} [dict create $::turtles::kmm::myself $mergeArgs]]
 		} else {
 			return [dict create]

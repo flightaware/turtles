@@ -211,4 +211,9 @@ test_handler_return phase1_go [list] $PROCS_1_BLANK $PROCS_1_BLANK $CMDS_NONE
 test_handler_return phase1_go [list] $PROCS_1_IDLE_E0 $PROCS_1_IDLE_E0 [dict create {find_moe} [dict create 0 [list 0]]]
 test_handler_return phase1_go [list] $PROCS_1_IDLE_E1 $PROCS_1_IDLE_E1 [dict create {find_moe} [dict create 0 [list 0]]]
 
+# Testing phase1_done
+
+test_handler_return phase1_done [list] $PROCS_NONE $PROCS_NONE $CMDS_NONE
+test_handler_return phase1_done [list] $PROCS_1_BLANK $PROCS_1_BLANK $CMDS_NONE
+
 cleanupTests
