@@ -28,9 +28,29 @@ namespace eval ::turtles::bale {
 # \param[in] callThreshold the minimum edge weight for a call to be considered (default: 0, i.e., at least once)
 proc ::turtles::bale::find_connected_procs {db {k 1} {callThreshold 0}} {
 	# Start k-machine model threads.
-	# Broadcast (k-machine index -> thread) map to all k-machine model threads.
+	::turtles::kmm::init $k ::turtles::bale::worker
 	# Open sqlite DB and populate threads with proc IDs (nodes) assigned per thread by a load-balancing hash.
+	sqlite3 ::turtles::bale::procs_db $db
+	set msgv [dict create]
+	::turtles::bale::procs_db eval {
+		SELECT proc_id, proc_name FROM proc_ids;
+	} values {
+		dict lappend [::turtles::kmm::machine_hash $values(proc_id)] $values(proc_id) $values(proc_hash)
+	}
+	::turtles::kmm::scatterv {add_proc} $msgv
 	# Populate proc ID nodes with call edges from aggregate caller/callee view.
+	set msgv [dict create]
+	::turtles::bale::procs_db eval {
+		SELECT caller_id callee_id calls FROM call_pts;
+	} values {
+		set caller_machine [::turtles::kmm::machine_hash $values(caller_id)]
+		set callee_machine [::turtles::kmm::machine_hash $values(caller_id)]
+		dict lappend $caller_machine $values(caller_id) $values(callee_id) $values(call)
+		if { $caller_machine != $callee_machine } {
+			dict lappend $callee_machine $values(caller_id) $values(caller_id) $values(callee_id) $values(call)
+		}
+	}
+	::turtles::kmm::scatterv {add_call} $msgv
 	# Phase 0: Signal to k-machine model threads to prepare for MST phases.
 	# Copy neighbors collection to active edges and sort by call count in descending order.
 	# While MST forest is incomplete...
