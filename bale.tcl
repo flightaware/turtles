@@ -72,15 +72,12 @@ proc ::turtles::bale::worker {i k} {
 	global ::turtles::kmm::myself
 	global ::turtles::kmm::machines
 	global ::turtles::bale::procs
-	global ::turtles::bale::roots
 	# Set the machine ID.
 	set ::turtles::kmm::myself $i
 	# Set the number of participating machines.
 	set ::turtles::kmm::machines $k
-	# Initialize the proc node dictionary.
-	set ::turtles::bale::procs [dict create]
-	# Initialize the root proc list.
-	set ::turtles::bale::roots [list]
+	# Initialize the proc node dictionary. A special key 'roots' holds the set of roots hosted on the node.
+	set ::turtles::bale::procs [dict create roots [dict create]]
 	interp alias {} ::turtles::kmm::recv {} ::turtles::bale::recv
 	thread::wait
 }

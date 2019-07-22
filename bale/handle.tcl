@@ -48,7 +48,7 @@ proc ::turtles::bale::handle::add_proc {cmdArgs} {
 	# args: int string ...
 	foreach {procId procName} $cmdArgs {
 		dict set ::turtles::bale::procs $procId [init_proc_node $procId $procName]
-		lappend ::turtles::bale::roots procId
+		dict set ::turtles::bale::procs roots $procId {}
 	}
 }
 

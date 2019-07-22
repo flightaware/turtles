@@ -23,19 +23,21 @@ set NOOP_DONE_E1_11 [dict replace $NOOP_DONE_E1 moe {0 1 1}]
 set NOOP_WAIT2_E2_C1 [dict replace $NOOP_WAIT_E1 awaiting 2 neighbors [dict create 1 1 2 1] outerEdges [list 1] innerEdges [list 2] children [list 2]]
 set NOOP_WAIT1_E2_C1 [dict replace $NOOP_WAIT_E1 neighbors [dict create 1 1 2 1] outerEdges [list 1] innerEdges [list 2] children [list 2]]
 # No procs on the machine
-set PROCS_NONE [dict create]
+set PROCS_NONE [dict create roots [dict create]]
 # Degenerate procs dict - key without value
-set PROCS_1_BLANK [dict create 0 [dict create]]
+set PROCS_1_BLANK [dict create 0 [dict create] roots [dict create]]
+# Root dictionaries
+set ROOTS_1 [dict create 0 {}]
 # Valid proc dictionaries
-set PROCS_1_IDLE_E0 [dict create 0 $NOOP_IDLE_E0]
-set PROCS_1_WAIT_E0 [dict create 0 $NOOP_WAIT_E0]
-set PROCS_1_IDLE_E1 [dict create 0 $NOOP_IDLE_E1]
-set PROCS_1_WAIT_E1 [dict create 0 $NOOP_WAIT_E1]
-set PROCS_1_WAIT_E1_INNER [dict create 0 $NOOP_WAIT_E1_INNER]
-set PROCS_1_WAIT2_E2_C1 [dict create 0 $NOOP_WAIT2_E2_C1]
-set PROCS_1_WAIT1_E2_C1 [dict create 0 $NOOP_WAIT1_E2_C1]
-set PROCS_1_DONE_E1 [dict create 0 $NOOP_DONE_E1]
-set PROCS_1_DONE_E1_11 [dict create 0 $NOOP_DONE_E1_11]
+set PROCS_1_IDLE_E0 [dict create 0 $NOOP_IDLE_E0 roots $ROOTS_1]
+set PROCS_1_WAIT_E0 [dict create 0 $NOOP_WAIT_E0 roots $ROOTS_1]
+set PROCS_1_IDLE_E1 [dict create 0 $NOOP_IDLE_E1 roots $ROOTS_1]
+set PROCS_1_WAIT_E1 [dict create 0 $NOOP_WAIT_E1 roots $ROOTS_1]
+set PROCS_1_WAIT_E1_INNER [dict create 0 $NOOP_WAIT_E1_INNER roots $ROOTS_1]
+set PROCS_1_WAIT2_E2_C1 [dict create 0 $NOOP_WAIT2_E2_C1 roots $ROOTS_1]
+set PROCS_1_WAIT1_E2_C1 [dict create 0 $NOOP_WAIT1_E2_C1 roots $ROOTS_1]
+set PROCS_1_DONE_E1 [dict create 0 $NOOP_DONE_E1 roots $ROOTS_1]
+set PROCS_1_DONE_E1_11 [dict create 0 $NOOP_DONE_E1_11 roots $ROOTS_1]
 # No commands returned
 set CMDS_NONE [dict create]
 
@@ -83,6 +85,7 @@ test dict_eq {{0 {0 0} 1 {1 0}} != {0 {0 0} 1 {1 1}}} -body { dict_eq [dict crea
 
 proc test_handler_return {cmd cmdArgs procsActual {procsExpected {}} {cmdsExpected {}}} {
 	set ::turtles::kmm::machines 2
+	set ::turtles::kmm::myself 0
 	test [subst {{$cmd}_return}] [subst {$cmd $cmdArgs}] -body {
 		set ::turtles::bale::procs $procsActual
 		set cmdsActual [$cmd $cmdArgs]
@@ -123,10 +126,10 @@ test_handler_return test_moe [list 0] $PROCS_1_IDLE_E0 $PROCS_1_IDLE_E0 $CMDS_NO
 # Valid case.
 test_handler_return test_moe [list 0] $PROCS_1_WAIT_E0 $PROCS_1_WAIT_E0 [dict create {found_moe} [dict create 0 [list 0 [list 0 0 0]]]]
 # Degenerate cases to illustrate field requirements.
-test_handler_return find_moe [list 0] [dict remove $PROCS_1_WAIT_E0 0 state] [dict remove $PROCS_1_WAIT_E0 0 state] $CMDS_NONE
-test_handler_return find_moe [list 0] [dict remove $PROCS_1_WAIT_E0 0 outerEdges] [dict remove $PROCS_1_WAIT_E0 0 outerEdges] $CMDS_NONE
-test_handler_return find_moe [list 0] [dict remove $PROCS_1_WAIT_E0 0 parent] [dict remove $PROCS_1_WAIT_E0 0 parent] $CMDS_NONE
-test_handler_return find_moe [list 0] [dict remove $PROCS_1_WAIT_E0 0 moe] [dict remove $PROCS_1_WAIT_E0 0 moe] $CMDS_NONE
+test_handler_return test_moe [list 0] [dict remove $PROCS_1_WAIT_E0 0 state] [dict remove $PROCS_1_WAIT_E0 0 state] $CMDS_NONE
+test_handler_return test_moe [list 0] [dict remove $PROCS_1_WAIT_E0 0 outerEdges] [dict remove $PROCS_1_WAIT_E0 0 outerEdges] $CMDS_NONE
+test_handler_return test_moe [list 0] [dict remove $PROCS_1_WAIT_E0 0 parent] [dict remove $PROCS_1_WAIT_E0 0 parent] $CMDS_NONE
+test_handler_return test_moe [list 0] [dict remove $PROCS_1_WAIT_E0 0 moe] [dict remove $PROCS_1_WAIT_E0 0 moe] $CMDS_NONE
 
 # Testing req_root
 test_handler_return req_root [list] $PROCS_NONE $PROCS_NONE $CMDS_NONE
@@ -183,7 +186,7 @@ test_handler_return found_moe [list 0 [list 0 1 1]] $PROCS_1_IDLE_E1 $PROCS_1_ID
 test_handler_return found_moe [list 0 [list 0 0 0]] $PROCS_1_IDLE_E1 $PROCS_1_IDLE_E1 $CMDS_NONE
 
 # Valid cases.
-test_handler_return found_moe [list 0 [list 2 1 1]] $PROCS_1_WAIT2_E2_C1 [dict create 0 [dict replace $NOOP_WAIT1_E2_C1 moe [list 2 1 1]]] [dict create {test_moe} [dict create 0 [list 0]]]
+test_handler_return found_moe [list 0 [list 2 1 1]] $PROCS_1_WAIT2_E2_C1 [dict create roots $ROOTS_1 0 [dict replace $NOOP_WAIT1_E2_C1 moe [list 2 1 1]]] [dict create {test_moe} [dict create 0 [list 0]]]
 test_handler_return found_moe [list 0 [list 2 0 0]] $PROCS_1_WAIT2_E2_C1 $PROCS_1_WAIT1_E2_C1 [dict create {test_moe} [dict create 0 [list 0]]]
 test_handler_return found_moe [list 0 [list 0 1 1]] $PROCS_1_WAIT_E1 $PROCS_1_DONE_E1_11 $CMDS_NONE
 test_handler_return found_moe [list 0 [list 0 0 0]] $PROCS_1_WAIT_E1 $PROCS_1_DONE_E1 $CMDS_NONE
