@@ -1,8 +1,10 @@
 #!/usr/bin/env tclsh
 
+package require Tcl 8.5 8.6
+package require Thread
+
 # \file kmm.tcl
 # Provides common functions for emulating a k-machine model in Tcl threads.
-
 namespace eval ::turtles::kmm {
 	namespace export machine_hash send recv bcast scatterv dict_scatterv init
 }
@@ -50,13 +52,19 @@ proc ::turtles::kmm::dict_scatterv {d} {
 }
 
 proc ::turtles::kmm::init {k worker} {
+	set ::turtles::kmm::supervisor [thread::current]
 	set ::turtles::kmm::model [list]
 	for {set i 0} {i < k} {incr i} {
 		lappend $::turtles::kmm::model [ thread::create { $worker $i $k } ]
 	}
 	# Broadcast (k-machine index -> thread) map to all k-machine model threads.
 	for {set i 0} {i < k} {incr i} {
-		thread::send [lindex $::turtles::kmm::model] { set ::turtles::kmm::model $::turtles::kmm::model }
+		thread::send [lindex $::turtles::kmm::model] [subst {
+			global ::turtles::kmm::supervisor
+			global ::turtles::kmm::model
+			set ::turtles::kmm::supervisor $::turtles::kmm::supervisor
+			set ::turtles::kmm::model $::turtles::kmm::model
+		}]
 	}
 }
 
