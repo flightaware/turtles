@@ -17,7 +17,9 @@ set NOOP_DONE_E0 [dict replace $NOOP_IDLE_E0 awaiting 0 state {DONE_MOE}]
 # Simulates proc with neighbor on another "machine"
 set NOOP_IDLE_E1 [dict replace $NOOP_IDLE_E0 neighbors [dict create 1 1] outerEdges [list 1]]
 set NOOP_WAIT_E1 [dict replace $NOOP_IDLE_E1 awaiting 1 state {WAIT_MOE}]
+set NOOP_WAIT_E1_INNER [dict replace $NOOP_WAIT_E1 outerEdges [list] innerEdges [list 1]]
 set NOOP_DONE_E1 [dict replace $NOOP_IDLE_E1 awaiting 0 state {DONE_MOE}]
+set NOOP_DONE_E1_11 [dict replace $NOOP_DONE_E1 moe {0 1 1}]
 set NOOP_WAIT2_E2_C1 [dict replace $NOOP_WAIT_E1 awaiting 2 neighbors [dict create 1 1 2 1] outerEdges [list 1] innerEdges [list 2] children [list 2]]
 set NOOP_WAIT1_E2_C1 [dict replace $NOOP_WAIT_E1 neighbors [dict create 1 1 2 1] outerEdges [list 1] innerEdges [list 2] children [list 2]]
 # No procs on the machine
@@ -29,34 +31,42 @@ set PROCS_1_IDLE_E0 [dict create 0 $NOOP_IDLE_E0]
 set PROCS_1_WAIT_E0 [dict create 0 $NOOP_WAIT_E0]
 set PROCS_1_IDLE_E1 [dict create 0 $NOOP_IDLE_E1]
 set PROCS_1_WAIT_E1 [dict create 0 $NOOP_WAIT_E1]
+set PROCS_1_WAIT_E1_INNER [dict create 0 $NOOP_WAIT_E1_INNER]
 set PROCS_1_WAIT2_E2_C1 [dict create 0 $NOOP_WAIT2_E2_C1]
 set PROCS_1_WAIT1_E2_C1 [dict create 0 $NOOP_WAIT1_E2_C1]
 set PROCS_1_DONE_E1 [dict create 0 $NOOP_DONE_E1]
+set PROCS_1_DONE_E1_11 [dict create 0 $NOOP_DONE_E1_11]
 # No commands returned
 set CMDS_NONE [dict create]
 
 # Modified from https://wiki.tcl-lang.org/page/dictutils
 proc dict_eq {d1 d2} {
 	if { [ lsort [ dict keys $d1 ] ] != [lsort [ dict keys $d2 ] ] } { return 0 }
+	set ok 1
 	dict for {k1 v1} $d1 {
-		if { ![ dict exists $d2 $k1] } { return 0 }
+		if { ![ dict exists $d2 $k1] } { set ok 0; break }
 		set v2 [dict get $d2 $k1]
-		catch {
+		if { [catch {
 			# Attempt dictionary operations on the values.
 			dict size $v1
 			dict size $v2
 			# If we can pretend it's a dictionary, let's do it!
 			# The result should be the same whether it's compared
 			# as a string or dictionary or list.
-			if { ![ dict_eq $v1 $v2 ] } { return 0 }
-		} err {
+			if { ![ dict_eq $v1 $v2 ] } { set ok 0; break }
+		} err] } {
 			# One of 'em is not a dictionary.
 			# Try simple equality test.
-			if { $v1 != $v2 } { return 0 }
+			if { $v1 != $v2 } { set ok 0; break }
 		}
 	}
-	return 1
+	return $ok
 }
+
+set d00 [dict create 0 0]
+set d11 [dict create 1 1]
+set d01 [dict create 0 1]
+set d10 [dict create 1 0]
 
 # dict_eq self-check
 test dict_eq {{} == {}} -body { dict_eq [dict create] [dict create] } -result 1
@@ -66,6 +76,10 @@ test dict_eq {{} != {0 0}} -body { dict_eq [dict create] [dict create 0 0] } -re
 test dict_eq {{0 0} == {0 0}} -body { dict_eq [dict create 0 0] [dict create 0 0] } -result 1
 test dict_eq {[0 0] == [0 0]} -body { dict_eq [list 0 0] [list 0 0] } -result 1
 test dict_eq {[0 0] == [0 0]} -body { dict_eq [list 0 0] [list 0 0] } -result 1
+test dict_eq {{0 {0 0} 1 {1 1}} == {0 {0 0} 1 {1 1}}} -body { dict_eq [dict create 0 $d00 1 $d11] [dict create 0 $d00 1 $d11] } -result 1 
+test dict_eq {{0 {0 0} 1 {1 1}} != {1 {0 0} 0 {1 1}}} -body { dict_eq [dict create 0 $d00 1 $d11] [dict create 0 $d11 1 $d00] } -result 0
+test dict_eq {{0 {0 0} 1 {1 0}} != {0 {0 0} 1 {1 1}}} -body { dict_eq [dict create 0 $d00 1 $d10] [dict create 0 $d00 1 $d11] } -result 0
+
 
 proc test_handler_return {cmd cmdArgs procsActual {procsExpected {}} {cmdsExpected {}}} {
 	set ::turtles::kmm::machines 2
@@ -136,7 +150,7 @@ test_handler_return rsp_root [list] $PROCS_1_WAIT_E1 $PROCS_1_WAIT_E1 $CMDS_NONE
 test_handler_return rsp_root [list 0 0] $PROCS_1_IDLE_E0 $PROCS_1_IDLE_E0 $CMDS_NONE
 test_handler_return rsp_root [list 0 1] $PROCS_1_IDLE_E0 $PROCS_1_IDLE_E0 $CMDS_NONE
 # Valid cases
-test_handler_return rsp_root [list 0 0] $PROCS_1_WAIT_E1 $PROCS_1_WAIT_E1 [dict create {test_moe} [dict create 0 [list 0]]]
+test_handler_return rsp_root [list 0 0] $PROCS_1_WAIT_E1 $PROCS_1_WAIT_E1_INNER [dict create {test_moe} [dict create 0 [list 0]]]
 test_handler_return rsp_root [list 0 1] $PROCS_1_WAIT_E1 $PROCS_1_WAIT_E1 [dict create {found_moe} [dict create 0 [list 0 [list 0 1 1]]]]
 # Degnenerate cases to illustrate field requirements.
 test_handler_return rsp_root [list 0 0] [dict remove $PROCS_1_WAIT_E1 0 state] [dict remove $PROCS_1_WAIT_E1 0 state] $CMDS_NONE
@@ -170,7 +184,7 @@ test_handler_return found_moe [list 0 [list 0 0 0]] $PROCS_1_IDLE_E1 $PROCS_1_ID
 # Valid cases.
 test_handler_return found_moe [list 0 [list 2 1 1]] $PROCS_1_WAIT2_E2_C1 [dict create 0 [dict replace $NOOP_WAIT1_E2_C1 moe [list 2 1 1]]] [dict create {test_moe} [dict create 0 [list 0]]]
 test_handler_return found_moe [list 0 [list 2 0 0]] $PROCS_1_WAIT2_E2_C1 $PROCS_1_WAIT1_E2_C1 [dict create {test_moe} [dict create 0 [list 0]]]
-test_handler_return found_moe [list 0 [list 0 1 1]] $PROCS_1_WAIT_E1 $PROCS_1_DONE_E1 $CMDS_NONE
+test_handler_return found_moe [list 0 [list 0 1 1]] $PROCS_1_WAIT_E1 $PROCS_1_DONE_E1_11 $CMDS_NONE
 test_handler_return found_moe [list 0 [list 0 0 0]] $PROCS_1_WAIT_E1 $PROCS_1_DONE_E1 $CMDS_NONE
 
 # Degnenerate cases to illustrate field requirements.

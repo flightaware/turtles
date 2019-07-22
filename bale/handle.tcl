@@ -242,7 +242,7 @@ proc ::turtles::bale::handle::found_moe {procsRef cmdArgs} {
 				if { $state != {WAIT_MOE} } { continue }
 				incr awaiting -1
 				if { $callerId != $calleeId && $calls > [lindex $moe 2] } {
-					set $moe $foundMOE
+					set moe $foundMOE
 				}
 				# Check if all the children have reported back.
 				# NB: awaiting field is initialized to children + 1 to include
