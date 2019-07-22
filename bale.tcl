@@ -28,7 +28,7 @@ namespace eval ::turtles::bale {
 # \param[in] callThreshold the minimum edge weight for a call to be considered (default: 0, i.e., at least once)
 proc ::turtles::bale::find_connected_procs {db {k 1} {callThreshold 0}} {
 	# Start k-machine model threads.
-	::turtles::kmm::init $k ::turtles::bale::worker
+	::turtles::kmm::init $k ::turtles::bale::init ::turtles::bale::recv
 	# Open sqlite DB and populate threads with proc IDs (nodes) assigned per thread by a load-balancing hash.
 	sqlite3 ::turtles::bale::procs_db $db
 	set msgv [dict create]
@@ -68,18 +68,10 @@ proc ::turtles::bale::find_connected_procs {db {k 1} {callThreshold 0}} {
 #
 # \param[in] i the k-machine identifier
 # \param[in] k the number of machines participating in the k-machine model
-proc ::turtles::bale::worker {i k} {
-	global ::turtles::kmm::myself
-	global ::turtles::kmm::machines
+proc ::turtles::bale::init {} {
 	global ::turtles::bale::procs
-	# Set the machine ID.
-	set ::turtles::kmm::myself $i
-	# Set the number of participating machines.
-	set ::turtles::kmm::machines $k
 	# Initialize the proc node dictionary. A special key 'roots' holds the set of roots hosted on the node.
 	set ::turtles::bale::procs [dict create roots [dict create]]
-	interp alias {} ::turtles::kmm::recv {} ::turtles::bale::recv
-	thread::wait
 }
 
 proc ::turtles::bale::recv {cmd cmdArgs} {

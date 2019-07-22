@@ -51,18 +51,29 @@ proc ::turtles::kmm::dict_scatterv {d} {
 	dict for {cmd cmdArgs} $d { ::turtles::kmm::scatterv $cmd $cmdArgs }
 }
 
-proc ::turtles::kmm::init {k worker} {
+proc ::turtles::kmm::init {k initFn recvFn} {
 	set ::turtles::kmm::supervisor [thread::current]
 	set ::turtles::kmm::model [list]
 	for {set i 0} {i < k} {incr i} {
-		lappend $::turtles::kmm::model [ thread::create { $worker $i $k } ]
+		lappend $::turtles::kmm::model [ thread::create [subst {
+			global ::turtles::kmm::myself
+			global ::turtles::kmm::machines
+			global ::turtles::kmm::supervisor
+			# Set the machine ID.
+			set ::turtles::kmm::myself $i
+			# Set the number of participating machines.
+			set ::turtles::kmm::machines $k
+			# Set the supervisor thread variable.
+			set ::turtles::kmm::supervisor $::turtles::kmm::supervisor
+			interp alias {} ::turtles::kmm::recv {} $recvFn
+			$initFn
+			thread::wait
+		}] ]
 	}
 	# Broadcast (k-machine index -> thread) map to all k-machine model threads.
-	for {set i 0} {i < k} {incr i} {
+	for {set i 0} {$i < k} {incr i} {
 		thread::send [lindex $::turtles::kmm::model] [subst {
-			global ::turtles::kmm::supervisor
 			global ::turtles::kmm::model
-			set ::turtles::kmm::supervisor $::turtles::kmm::supervisor
 			set ::turtles::kmm::model $::turtles::kmm::model
 		}]
 	}

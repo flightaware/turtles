@@ -260,7 +260,6 @@ proc ::turtles::bale::handle::found_moe {cmdArgs} {
 	}
 	# Remove supplanted roots.
 	foreach procId $unroots {
-		puts "**************** UNROOT $procId *****************"
 		dict unset ::turtles::bale::procs roots $procId
 	}
 	return [fix_msgv $msgv]
@@ -314,14 +313,19 @@ proc ::turtles::bale::handle::down_moe {cmdArgs} {
 proc ::turtles::bale::handle::phase1_go {cmdArgs} {
 	global ::turtles::bale::phase1ProcsLeft
 	global ::turtles::bale::phase1MachinesLeft
+	set msgv [init_msgv {find_moe} {phase1_done}]
 	set ::turtles::bale::phase1ProcsLeft [dict size $::turtles::bale::procs]
 	set ::turtles::bale::phase1MachinesLeft $::turtles::kmm::machines
 	set findArgs [dict keys [dict get $::turtles::bale::procs roots]]
 	if { [llength $findArgs] > 0 } {
-		return [dict create {find_moe} [dict create $::turtles::kmm::myself $findArgs]]
+		dict update msgv {find_moe} _msg { dict set _msg $::turtles::kmm::myself $findArgs }
 	} else {
-		return [dict create]
+		for {set i 0} {$i < $::turtles::kmm::machines} {incr i} {
+			# Notify all other machines that this machine has finished phase 1 for all hosted proc nodes.
+			dict update msgv {phase1_done} _msg { dict lappend _msg $i $::turtles::kmm::myself }
+		}
 	}
+	return [fix_msgv $msgv]
 }
 
 proc ::turtles::bale::handle::phase1_done {cmdArgs} {
@@ -332,11 +336,7 @@ proc ::turtles::bale::handle::phase1_done {cmdArgs} {
 		set ::turtles::bale::phase2ProcsLeft [dict size $::turtles::bale::procs]
 		set ::turtles::bale::phase2MachinesLeft $::turtles::kmm::machines
 		set mergeArgs [dict keys [dict get $::turtles::bale::procs roots]]
-		if { [llength $mergeArgs] > 0 } {
-			return [dict create {merge} [dict create $::turtles::kmm::myself $mergeArgs]]
-		} else {
-			return [dict create]
-		}
+		return [dict create {merge} [dict create $::turtles::kmm::myself $mergeArgs]]
 	} else {
 		return [dict create]
 	}

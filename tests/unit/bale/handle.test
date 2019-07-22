@@ -206,8 +206,8 @@ test_handler_return found_moe [list 0 [list 0 0 0]] [dict remove $PROCS_1_WAIT_E
 
 # Testing phase1_go
 
-test_handler_return phase1_go [list] $PROCS_NONE $PROCS_NONE $CMDS_NONE
-test_handler_return phase1_go [list] $PROCS_1_BLANK $PROCS_1_BLANK $CMDS_NONE
+test_handler_return phase1_go [list] $PROCS_NONE $PROCS_NONE [dict create {phase1_done} [dict create 0 0 1 0]]
+test_handler_return phase1_go [list] $PROCS_1_BLANK $PROCS_1_BLANK [dict create {phase1_done} [dict create 0 0 1 0]]
 test_handler_return phase1_go [list] $PROCS_1_IDLE_E0 $PROCS_1_IDLE_E0 [dict create {find_moe} [dict create 0 [list 0]]]
 test_handler_return phase1_go [list] $PROCS_1_IDLE_E1 $PROCS_1_IDLE_E1 [dict create {find_moe} [dict create 0 [list 0]]]
 
@@ -215,5 +215,7 @@ test_handler_return phase1_go [list] $PROCS_1_IDLE_E1 $PROCS_1_IDLE_E1 [dict cre
 
 test_handler_return phase1_done [list] $PROCS_NONE $PROCS_NONE $CMDS_NONE
 test_handler_return phase1_done [list] $PROCS_1_BLANK $PROCS_1_BLANK $CMDS_NONE
+test_handler_return phase1_done [list] $PROCS_1_IDLE_E0 $PROCS_1_IDLE_E0 $CMDS_NONE
+test_handler_return phase1_done [list] $PROCS_1_IDLE_E0 $PROCS_1_IDLE_E0 $CMDS_NONE
 
 cleanupTests
