@@ -11,10 +11,10 @@ proc ::turtles::kmm::machine_hash {procId} {
 	return [expr {$procId % $::turtles::kmm::machines} ]
 }
 
-proc ::turtles::kmm::send {targetId cmd args {await {}}} {
+proc ::turtles::kmm::send {targetId cmd cmdArgs {await {}}} {
 	set targetThread [lindex $::turtles::kmm::model targetId]
 	thread::send -async $targetThread [subst {
-		::turtles::kmm::recv $cmd $args
+		::turtles::kmm::recv $cmd $cmdArgs
 	}] awaiter
 	if { $await ne {} } {
 		vwait $awaiter
@@ -22,12 +22,12 @@ proc ::turtles::kmm::send {targetId cmd args {await {}}} {
 	return $awaiter
 }
 
-proc ::turtles::kmm::bcast {cmd args {await {}}} {
+proc ::turtles::kmm::bcast {cmd cmdArgs {await {}}} {
 	set i 0
 	array set awaiters
 	foreach targetThread $::turtles::kmm::model {
 		::turtles::send -async $targetThread [subst {
-			::turtles::kmm::recv $cmd $args
+			::turtles::kmm::recv $cmd $cmdArgs
 		}] awaiters($i)
 		incr i
 	}
@@ -46,7 +46,7 @@ proc ::turtles::kmm::scatterv {cmd msgv} {
 }
 
 proc ::turtles::kmm::dict_scatterv {d} {
-	dict for {cmd args} $d { ::turtles::kmm::scatterv $cmd $args }
+	dict for {cmd cmdArgs} $d { ::turtles::kmm::scatterv $cmd $cmdArgs }
 }
 
 proc ::turtles::kmm::init {k worker} {
@@ -54,6 +54,7 @@ proc ::turtles::kmm::init {k worker} {
 	for {set i 0} {i < k} {incr i} {
 		lappend $::turtles::kmm::model [ thread::create { $worker $i $k } ]
 	}
+	# Broadcast (k-machine index -> thread) map to all k-machine model threads.
 	for {set i 0} {i < k} {incr i} {
 		thread::send [lindex $::turtles::kmm::model] { set ::turtles::kmm::model $::turtles::kmm::model }
 	}
