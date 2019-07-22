@@ -85,16 +85,16 @@ proc ::turtles::bale::worker {i k} {
 	thread::wait
 }
 
-proc ::turtles::bale::recv {cmd args} {
+proc ::turtles::bale::recv {cmd cmdArgs} {
 	switch $cmd {
-		add_proc  { ::turtles::bale::handle::add_proc ::turtles::bale::procs $args }
-		add_call  { ::turtles::bale::handle::add_call ::turtles::bale::procs $args }
-		find_moe  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::find_moe  ::turtles::bale::procs $args ] }
-		found_moe { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::found_moe ::turtles::bale::procs $args ] }
-		test_moe  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::test_moe  ::turtles::bale::procs $args ] }
-		req_root  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::req_root  ::turtles::bale::procs $args ] }
-		rsp_root  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::rsp_root  ::turtles::bale::procs $args ] }
-		default   { ::turtles::bale::handle::invalid_cmd $cmd $args }
+		add_proc  { ::turtles::bale::handle::add_proc $cmdArgs }
+		add_call  { ::turtles::bale::handle::add_call $cmdArgs }
+		find_moe  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::find_moe  $cmdArgs ] }
+		found_moe { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::found_moe $cmdArgs ] }
+		test_moe  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::test_moe  $cmdArgs ] }
+		req_root  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::req_root  $cmdArgs ] }
+		rsp_root  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::rsp_root  $cmdArgs ] }
+		default   { ::turtles::bale::handle::invalid_cmd $cmd $cmdArgs }
 	}
 }
 
