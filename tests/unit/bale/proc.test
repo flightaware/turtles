@@ -1,0 +1,15 @@
+## \file proc.test
+
+package require tcltest
+namespace import ::tcltest::*
+
+set testDirectory [file join [file dirname [file normalize [info script]]]] 
+source ../bale/proc.tcl
+
+namespace import ::turtles::bale::proc::*
+
+
+set NOOP [dict create procId 0 procName noop neighbors {} outerEdges {} innerEdges {} root 0 parent 0 children {} moe {0 0 0} awaiting 0 state {IDLE}]
+test test_init {init 0 noop} -body { init 0 noop } -result $NOOP
+
+cleanupTests
