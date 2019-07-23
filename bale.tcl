@@ -2,6 +2,7 @@
 
 package require turtles::kmm 0.1
 package require turtles::bale::handle 0.1
+package require turtles::bale::machine 0.1
 
 ## \file bale.tcl
 # Provides the graph clustering algorithms for the history of proc calls recorded
@@ -69,23 +70,31 @@ proc ::turtles::bale::find_connected_procs {db {k 1} {callThreshold 0}} {
 # \param[in] i the k-machine identifier
 # \param[in] k the number of machines participating in the k-machine model
 proc ::turtles::bale::init {} {
-	global ::turtles::bale::procs
-	# Initialize the proc node dictionary. A special key 'roots' holds the set of roots hosted on the node.
-	set ::turtles::bale::procs [dict create roots [dict create]]
+	global ::turtles::bale::machineState
+	# Initialize the machine state dictionary.
+	set ::turtles::bale::machineState [::turtles::bale::machine::init]
 }
 
 proc ::turtles::bale::recv {cmd cmdArgs} {
 	switch $cmd {
-		phase1_go { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::phase1_go $cmdArgs ] }
-		phase1_done { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::phase1_done $cmdArgs ] }
+		# Generic phase commands
+		phase_init { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::phase_init ::turtles::bale::machineState $cmdArgs ] }
+		phase_done { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::phase1_done ::turtles::bale::machineState $cmdArgs ] }
 
-		add_proc  { ::turtles::bale::handle::add_proc $cmdArgs }
-		add_call  { ::turtles::bale::handle::add_call $cmdArgs }
-		find_moe  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::find_moe  $cmdArgs ] }
-		found_moe { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::found_moe $cmdArgs ] }
-		test_moe  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::test_moe  $cmdArgs ] }
-		req_root  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::req_root  $cmdArgs ] }
-		rsp_root  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::rsp_root  $cmdArgs ] }
+		# Phase 1 commands
+		add_proc   { ::turtles::bale::handle::add_proc ::turtles::bale::machineState $cmdArgs }
+		add_call   { ::turtles::bale::handle::add_call ::turtles::bale::machineState $cmdArgs }
+		find_moe   { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::find_moe  ::turtles::bale::machineState $cmdArgs ] }
+		test_moe   { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::test_moe  ::turtles::bale::machineState $cmdArgs ] }
+		req_root   { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::req_root  ::turtles::bale::machineState $cmdArgs ] }
+		rsp_root   { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::rsp_root  ::turtles::bale::machineState $cmdArgs ] }
+		found_moe  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::found_moe ::turtles::bale::machineState $cmdArgs ] }
+
+		# Phase 3 commands
+		req_active { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::req_active ::turtles::bale::machineState $cmdArgs ] }
+		rsp_active { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::rsp_active ::turtles::bale::machineState $cmdArgs ] }
+		# Miscellaneous
+		put_state { puts stderr $::turtles::bale::machineState }
 		default   { ::turtles::bale::handle::invalid_cmd $cmd $cmdArgs }
 	}
 }
