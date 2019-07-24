@@ -318,7 +318,6 @@ proc ::turtles::bale::handle::phase_init {machineStateP cmdArgs} {
 	dict with machineState {
 		lassign $cmdArgs newPhase
 		set procsInPhase [dict size $procs]
-		set machinesInPhase $::turtles::kmm::machines
 		switch $newPhase {
 			1 { # Find MOE
 				set rootCmd {find_moe}
@@ -338,6 +337,7 @@ proc ::turtles::bale::handle::phase_init {machineStateP cmdArgs} {
 			}
 		}
 		if { $rootCmd ne {} } {
+			set machinesInPhase $::turtles::kmm::machines
 			set phase $newPhase
 			if { [dict size $roots] > 0 } {
 				dict update msgv $rootCmd _msg { dict set _msg $::turtles::kmm::myself [dict keys $roots] }
