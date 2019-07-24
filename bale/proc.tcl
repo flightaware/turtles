@@ -50,8 +50,6 @@ proc ::turtles::bale::proc::diff {proc1P proc2P} {
 	upvar $proc1P procA
 	upvar $proc2P procB
 	set procD [dict create]
-	puts "procA: $procA"
-	puts "procB: $procB"
 	dict for {kA vA} $procA {
 		if { [dict exists $procB $kA] } {
 			set vB [dict get $procB $kA]
@@ -67,7 +65,6 @@ proc ::turtles::bale::proc::diff {proc1P proc2P} {
 				awaiting -
 				state    {
 					if { $vA != $vB } { dict set procD $kA $vB }
-					puts stderr "procD/$kA: $procD"
 				}
 				neighbors {
 					set vD [dict create]
@@ -101,7 +98,6 @@ proc ::turtles::bale::proc::diff {proc1P proc2P} {
 			dict set procD "+$k" $v
 		}
 	}
-	puts "procD: $procD"
 	return $procD
 }
 

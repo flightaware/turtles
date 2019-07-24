@@ -20,7 +20,6 @@ proc ::turtles::bale::machine::init {} {
 proc ::turtles::bale::machine::has_proc {machineStateP procId} {
 	upvar $machineStateP machineState
 	set ok 0
-	puts stderr $machineState
 	dict with machineState procs {
 		# NB: This is passing the proc id key as a name reference
 		# so that the dictionary can be upvar'd.
@@ -44,8 +43,6 @@ proc ::turtles::bale::machine::diff {machineState1P machineState2P} {
 					if { $vA != $vB } { dict set machineStateD $kA $vB }
 				}
 				procs {
-					puts stderr "vA: $vA"
-					puts stderr "vB: $vB"
 					set vD [dict create]
 					dict for {k1 p1} $vA {
 						if { [dict exists $vB $k1] } {
