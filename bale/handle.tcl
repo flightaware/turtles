@@ -37,6 +37,7 @@ namespace eval ::turtles::bale::handle {
 proc ::turtles::bale::handle::add_proc {machineStateP cmdArgs} {
 	upvar $machineStateP machineState
 	dict with machineState {
+		if { $phase != 0 } { return }
 		foreach {procId procName} $cmdArgs {
 			dict set procs $procId [::turtles::bale::proc::init $procId $procName]
 			dict set roots $procId {}
@@ -53,6 +54,7 @@ proc ::turtles::bale::handle::add_proc {machineStateP cmdArgs} {
 proc ::turtles::bale::handle::add_call {machineStateP cmdArgs} {
 	upvar $machineStateP machineState
 	dict with machineState {
+		if { $phase != 0 } { return }
 		foreach {callerId calleeId calls} $cmdArgs {
 			if {$callerId == $calleeId} {
 				# Ignore self-reference. This is MST construction, not cycle detection.
