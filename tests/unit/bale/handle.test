@@ -26,9 +26,9 @@ set NOOP_WAIT2_E2_C1 [dict replace $NOOP_WAIT_E1 awaiting 2 neighbors [dict crea
 set NOOP_WAIT1_E2_C1 [dict replace $NOOP_WAIT_E1 neighbors [dict create 1 1 2 1] outerEdges [list 1] innerEdges [list 2] children [list 2]]
 
 # Ground machine state
-set M0_P0 [::turtles::bale::machine::init]
-set M0_P1 [dict replace $M0_P0 procs [dict create 0 $NOOP_IDLE_E0]]
-
+set M0_P0_N0 [::turtles::bale::machine::init]
+set M0_P0_N1 [dict replace $M0_P0_N0 procs [dict create 0 $NOOP_IDLE_E0]]
+set M0_P1_N0 [dict replace $M0_P0_N0 phase 1]
 
 # No procs on the machine
 set PROCS_NONE [dict create roots [dict create]]
@@ -64,26 +64,28 @@ proc test_handler_return {cmd machineStateIn cmdArgs {machineStateDiffExpected {
 }
 
 # Testing add_proc
-test_handler_return add_proc $M0_P0 [list]
+test_handler_return add_proc $M0_P0_N0 [list]
+test_handler_return add_proc $M0_P1_N0 [list 0 ::noop]
+test_handler_return add_proc $M0_P0_N0 [list 0 ::noop] "procs {+0 {$NOOP_IDLE_E0}} roots {+0 {}} procsActive 1"
 
 # Testing add_call
-test_handler_return add_call $M0_P0 [list]
+test_handler_return add_call $M0_P0_N0 [list]
 
 # Testing find_moe
-test_handler_return find_moe $M0_P0 [list]
+test_handler_return find_moe $M0_P0_N0 [list]
 #test_handler_return find_moe [list] $PROCS_1_BLANK $PROCS_1_BLANK $CMDS_NONE
 #test_handler_return find_moe [list] $PROCS_1_IDLE_E0 $PROCS_1_IDLE_E0 $CMDS_NONE
 #test_handler_return find_moe [list 0] $PROCS_NONE $PROCS_NONE $CMDS_NONE
 #test_handler_return find_moe [list 0] $PROCS_1_BLANK $PROCS_1_BLANK $CMDS_NONE
 # Valid case.
-test_handler_return find_moe $M0_P1 [list 0] {procs {0 {awaiting 1 state WAIT_MOE}}} {test_moe {0 0}}
+test_handler_return find_moe $M0_P0_N1 [list 0] {procs {0 {awaiting 1 state WAIT_MOE}}} {test_moe {0 0}}
 # # Degenerate cases to illustrate field requirements.
 # test_handler_return find_moe [list 0] [dict remove $PROCS_1_IDLE_E0 0 awaiting] [dict remove $PROCS_1_IDLE_E0 0 awaiting] $CMDS_NONE
 # test_handler_return find_moe [list 0] [dict remove $PROCS_1_IDLE_E0 0 children] [dict remove $PROCS_1_IDLE_E0 0 children] $CMDS_NONE
 # test_handler_return find_moe [list 0] [dict remove $PROCS_1_IDLE_E0 0 state] [dict remove $PROCS_1_IDLE_E0 0 state] $CMDS_NONE
 
 # # Testing test_moe
-# test_handler_return test_moe [list] $PROCS_NONE $PROCS_NONE $CMDS_NONE
+test_handler_return test_moe $M0_P0_N0 [list]
 # test_handler_return test_moe [list] $PROCS_1_BLANK $PROCS_1_BLANK $CMDS_NONE
 # test_handler_return test_moe [list] $PROCS_1_IDLE_E0 $PROCS_1_IDLE_E0 $CMDS_NONE
 # test_handler_return test_moe [list 0] $PROCS_NONE $PROCS_NONE $CMDS_NONE
@@ -99,6 +101,7 @@ test_handler_return find_moe $M0_P1 [list 0] {procs {0 {awaiting 1 state WAIT_MO
 # test_handler_return test_moe [list 0] [dict remove $PROCS_1_WAIT_E0 0 moe] [dict remove $PROCS_1_WAIT_E0 0 moe] $CMDS_NONE
 
 # # Testing req_root
+test_handler_return req_root $M0_P0_N0 [list]
 # test_handler_return req_root [list] $PROCS_NONE $PROCS_NONE $CMDS_NONE
 # test_handler_return req_root [list] $PROCS_1_BLANK $PROCS_1_BLANK $CMDS_NONE
 # test_handler_return req_root [list] $PROCS_1_IDLE_E0 $PROCS_1_IDLE_E0 $CMDS_NONE
@@ -113,6 +116,7 @@ test_handler_return find_moe $M0_P1 [list 0] {procs {0 {awaiting 1 state WAIT_MO
 
 
 # # Testing rsp_root
+test_handler_return rsp_root $M0_P0_N0 [list]
 # test_handler_return rsp_root [list] $PROCS_NONE $PROCS_NONE $CMDS_NONE
 # test_handler_return rsp_root [list] $PROCS_1_BLANK $PROCS_1_BLANK $CMDS_NONE
 # test_handler_return rsp_root [list] $PROCS_1_IDLE_E0 $PROCS_1_IDLE_E0 $CMDS_NONE
@@ -136,6 +140,7 @@ test_handler_return find_moe $M0_P1 [list 0] {procs {0 {awaiting 1 state WAIT_MO
 # test_handler_return rsp_root [list 0 1] [dict remove $PROCS_1_WAIT_E1 0 roots] [dict remove $PROCS_1_WAIT_E1 0 roots] $CMDS_NONE
 
 # # Testing found_moe
+test_handler_return found_moe $M0_P0_N0 [list]
 # test_handler_return found_moe [list] $PROCS_NONE $PROCS_NONE $CMDS_NONE
 # test_handler_return found_moe [list 0 [list 0 1 1]] $PROCS_NONE $PROCS_NONE $CMDS_NONE
 # test_handler_return found_moe [list 0 [list 0 0 0]] $PROCS_NONE $PROCS_NONE $CMDS_NONE
@@ -171,14 +176,16 @@ test_handler_return find_moe $M0_P1 [list 0] {procs {0 {awaiting 1 state WAIT_MO
 # test_handler_return found_moe [list 0 [list 0 0 0]] [dict remove $PROCS_1_WAIT_E1 0 procId] [dict remove $PROCS_1_WAIT_E1 0 procId] $CMDS_NONE
 
 
-# # Testing phase1_go
+# # Testing phase_init
+test_handler_return phase_init $M0_P0_N0 [list]
 
 # test_handler_return phase1_go [list] $PROCS_NONE $PROCS_NONE [dict create {phase1_done} [dict create 0 0 1 0]]
 # test_handler_return phase1_go [list] $PROCS_1_BLANK $PROCS_1_BLANK [dict create {phase1_done} [dict create 0 0 1 0]]
 # test_handler_return phase1_go [list] $PROCS_1_IDLE_E0 $PROCS_1_IDLE_E0 [dict create {find_moe} [dict create 0 [list 0]]]
 # test_handler_return phase1_go [list] $PROCS_1_IDLE_E1 $PROCS_1_IDLE_E1 [dict create {find_moe} [dict create 0 [list 0]]]
 
-# # Testing phase1_done
+# # Testing phase_done
+test_handler_return phase_done $M0_P0_N0 [list]
 
 # test_handler_return phase1_done [list] $PROCS_NONE $PROCS_NONE $CMDS_NONE
 # test_handler_return phase1_done [list] $PROCS_1_BLANK $PROCS_1_BLANK $CMDS_NONE
