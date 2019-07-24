@@ -14,7 +14,7 @@ namespace import ::turtles::kmm::*
 # This abstraction affords a means for unit-testing the handlers and checking the return
 # values and/or state of the proc node dictionary passed by name reference.
 namespace eval ::turtles::bale::handle {
-	namespace export add_proc add_call phase1_go find_moe test_moe req_root rsp_root found_moe phase1_done init_msgv fix_msgv init_proc_node
+	namespace export add_proc add_call phase_init phase_done find_moe test_moe req_root rsp_root found_moe init_msgv fix_msgv init_proc_node
 }
 
 
