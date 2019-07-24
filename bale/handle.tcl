@@ -356,24 +356,26 @@ proc ::turtles::bale::handle::phase_done {machineStateP cmdArgs} {
 	set msgv [init_msgv {phase_init}]
 	upvar $machineStateP machineState
 	dict with machineState {
-		incr machinesInPhase -1
-		if { $machinesInPhase == 0 } {
-			switch $phase {
-				1 { # Find MOE
-					dict update msgv {phase_init} _msg { dict lappend _msg $::turtles::kmm::myself 2 }
-				}
-				2 { # Merge
-					dict update msgv {phase_init} _msg { dict lappend _msg $::turtles::kmm::myself 3 }
-				}
-				3 { # Termination check
-					if { $procsActive > 0 } {
-						dict update msgv {phase_init} _msg { dict lappend _msg $::turtles::kmm::myself 1 }
-					} else {
-						dict update msgv {phase_init} _msg { dict lappend _msg $::turtles::kmm::myself 4 }
+		if { $machinesInPhase != 0 } {
+			incr machinesInPhase -1
+			if { $machinesInPhase == 0 } {
+				switch $phase {
+					1 { # Find MOE
+						dict update msgv {phase_init} _msg { dict lappend _msg $::turtles::kmm::myself 2 }
 					}
-				}
-				4 { # Summarize results
-					# @TODO: Build message to send back to supervisor here?
+					2 { # Merge
+						dict update msgv {phase_init} _msg { dict lappend _msg $::turtles::kmm::myself 3 }
+					}
+					3 { # Termination check
+						if { $procsActive > 0 } {
+							dict update msgv {phase_init} _msg { dict lappend _msg $::turtles::kmm::myself 1 }
+						} else {
+							dict update msgv {phase_init} _msg { dict lappend _msg $::turtles::kmm::myself 4 }
+						}
+					}
+					4 { # Summarize results
+						# @TODO: Build message to send back to supervisor here?
+					}
 				}
 			}
 		}
