@@ -214,7 +214,7 @@ proc ::turtles::bale::handle::rsp_root {machineStateP cmdArgs} {
 #
 # \param[in,out] machineStateP a name reference to a state dictionary
 # \params cmdArgs a list with {int {int int int}} stride indicating the subtree root and the branch MOE, respectively
-proc ::turtles::bale::handle::found_moe {cmdArgs} {
+proc ::turtles::bale::handle::found_moe {machineStateP cmdArgs} {	
 	# Initialize the buffer of test_moe messages to send.
 	set msgv [init_msgv {test_moe} {found_moe}]
 	upvar $machineStateP machineState
