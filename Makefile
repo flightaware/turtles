@@ -49,14 +49,16 @@ all:
 
 install: install-package install-docs
 
+package: ./pkgIndex.tcl ./bale/pkgIndex.tcl ./persistence/pkgIndex.tcl
+
 test-package: tests/all.tcl \
 	      tests/unit/*.test \
 	      tests/functional/*.test \
               tests/integration/helpers.tcl tests/integration/*.test
 	@cd tests && tclsh all.tcl
 
-pkgIndex.tcl: $(shell find . -name '*.tcl' | grep -v pkgIndex.tcl)
-	echo "pkg_mkIndex ." | $(TCLSH)
+%/pkgIndex.tcl: $(shell find . -name '*.tcl' | grep -v pkgIndex.tcl)
+	echo "pkg_mkIndex $*" | $(TCLSH)
 
 install-package: pkgIndex.tcl docs test-package
 	@echo ----- installing package
