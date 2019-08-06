@@ -43,9 +43,10 @@ proc ::turtles::on_proc_enter {commandString op} {
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
 	regsub {tid} [ thread::id ] {} threadId
 	set srcLine  [ dict get $execFrame line]
+	set stackLvl [ info level ]
 	# Set the unique trace ID for this exact call point.
-	# The trace ID is a hash of the caller, callee, source line, and current thread.
-	set traceId [ ::turtles::hashing::hash_int_list [list $callerId $calleeId $srcLine $threadId] ]
+	# The trace ID is a hash of the current thread, stack level, caller, source line, and callee.
+	set traceId [ ::turtles::hashing::hash_int_list [list $threadId $stackLvl $callerId $srcLine $calleeId] ]
 	# Set time of entry as close to function entry as possible to avoid adding overhead to accounting.
 	set timeEnter [ clock microseconds ]
 	# Record entry into proc.
@@ -86,8 +87,9 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
 	regsub {tid} [ thread::id ] {} threadId
 	set srcLine  [ dict get $execFrame line]
-	# The trace ID is a hash of the caller, callee, source line, and current thread.
-	set traceId [ ::turtles::hashing::hash_int_list [list $callerId $calleeId $srcLine $threadId] ]
+	set stackLvl [ info level ]
+	# The trace ID is a hash of the current thread, stack level, caller, source line, and callee.
+	set traceId [ ::turtles::hashing::hash_int_list [list $threadId $stackLvl $callerId $srcLine $calleeId] ]
 	# Record exit from proc.
 	if { [info exists ::turtles::debug] } {
 		puts stderr "\[$timeLeave:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
