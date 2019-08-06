@@ -13,7 +13,7 @@ package require turtles::persistence 0.1
 
 ## The package namespace.
 namespace eval ::turtles {
-	namespace export release_the_turtles on_proc_enter on_proc_define_add_trace
+	namespace export release_the_turtles capture_the_turtles on_proc_enter on_proc_define_add_trace
 }
 
 ## Handler for proc entry.
