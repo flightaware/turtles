@@ -6,6 +6,8 @@ package require Thread
 # \file kmm.tcl
 # Provides common functions for emulating a k-machine model in Tcl threads.
 namespace eval ::turtles::kmm {
+	variable ::turtles::kmm::supervisor
+	variable ::turtles::kmm::model
 	namespace export machine_hash send recv bcast scatterv dict_scatterv init
 }
 
