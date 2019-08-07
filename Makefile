@@ -49,7 +49,7 @@ all:
 
 install: install-package install-docs
 
-package: ./pkgIndex.tcl ./bale/pkgIndex.tcl ./persistence/pkgIndex.tcl
+package: ./pkgIndex.tcl
 
 test-package: tests/all.tcl \
 	      tests/unit/*.test \
