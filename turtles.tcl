@@ -9,7 +9,7 @@
 package require Tcl                  8.5 8.6
 package require Thread
 package require turtles::hashing     0.1
-package require turtles::persistence 0.1
+package require turtles::persistence::mt 0.1
 
 ## The package namespace.
 namespace eval ::turtles {
@@ -53,7 +53,7 @@ proc ::turtles::on_proc_enter {commandString op} {
 	if { [info exists ::turtles::debug] } {
 		puts stderr "\[$timeEnter:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
 	}
-	::turtles::persistence::add_call $callerId $calleeId $traceId $timeEnter
+	::turtles::persistence::mt::add_call $callerId $calleeId $traceId $timeEnter
 }
 
 ## Handler for proc exit.
@@ -94,7 +94,7 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 	if { [info exists ::turtles::debug] } {
 		puts stderr "\[$timeLeave:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
 	}
-	::turtles::persistence::update_call $callerId $calleeId $traceId $timeLeave
+	::turtles::persistence::mt::update_call $callerId $calleeId $traceId $timeLeave
 }
 
 ## Handler for injecting entry and exit handlers.
@@ -133,7 +133,7 @@ proc ::turtles::add_proc_trace {procName} {
 	set procId [::turtles::hashing::hash_string $procName]
 	set timeDefined [clock microseconds]
 	# Add the proc ID hash to the lookup table and the list of traced procs.
-	::turtles::persistence::add_proc_id $procId $procName $timeDefined
+	::turtles::persistence::mt::add_proc_id $procId $procName $timeDefined
 	lappend ::turtles::tracedProcs $procName
 	# Add handler for proc entry.
 	if { [ catch { trace add execution $procName [list enter] ::turtles::on_proc_enter } err ] } {
@@ -151,26 +151,26 @@ proc ::turtles::add_proc_trace {procName} {
 # This function binds to the \c proc command so that any proc declared after invocation
 # will have the entry and exit handlers bound to it.
 #
-# The necessary arguments to \c ::turtles::persistence::start are exposed here as pass-through arguments.
+# The necessary arguments to \c ::turtles::persistence::mt::start are exposed here as pass-through arguments.
 #
 # \param[in] finalDB the file for finalized persistence as a sqlite DB [default: turtles-[clock microseconds].db]
 # \param[in] commitMode the mode for persistence (\c staged | \c direct) [default: \c staged]
 # \param[in] intervalMillis the number of milliseconds between stage transfers [default: 30000]
 proc ::turtles::release_the_turtles {{finalDB "turtles-[clock microseconds].db"} {commitMode staged} {intervalMillis 30000}} {
 	# Start the persistence mechanism now so it's ready once the hooks are added.
-	::turtles::persistence::start $finalDB $commitMode $intervalMillis
+	::turtles::persistence::mt::start $finalDB $commitMode $intervalMillis
 
 	# Bootstrap the proc IDs for the ::turtles namespace and its children
 	# so that the standard views make sense.
 	foreach procName [ concat \
 						   [info procs ::turtles::*] \
 						   [info procs ::turtles::hashing::*] \
-						   [info procs ::turtles::persistence::*] ] {
+						   [info procs ::turtles::persistence::mt::*] ] {
 		# Calculate the proc ID hash and set the time defined.
 		set procId [::turtles::hashing::hash_string $procName]
 		set timeDefined [clock microseconds]
 		# Add the proc ID hash to the lookup table and the list of traced procs.
-		::turtles::persistence::add_proc_id $procId $procName $timeDefined
+		::turtles::persistence::mt::add_proc_id $procId $procName $timeDefined
 	}
 
 	# Initialize an empty list of procs being traced.
@@ -190,7 +190,7 @@ proc ::turtles::capture_the_turtles {} {
 		trace remove execution $handledProc [list leave] ::turtles::on_proc_leave
 	}
 	unset ::turtles::tracedProcs
-	::turtles::persistence::stop
+	::turtles::persistence::mt::stop
 }
 
 package provide turtles          0.1

@@ -5,18 +5,18 @@ package require Thread
 namespace import ::tcltest::*
 
 # Module under test
-package require turtles::persistence
+package require turtles::persistence::mt
 
 proc with_persistence_test {finalDB {commitMode staged} {intervalMillis 1000} {testBody {return 1}} {testResult 1}} {
 	test with_persistence [subst {with_persistence $finalDB $commitMode $intervalMillis}] -setup {
-		::turtles::persistence::start $finalDB $commitMode $intervalMillis
-		if { ![ thread::exists $::turtles::persistence::recorder ] } {
+		::turtles::persistence::mt::start $finalDB $commitMode $intervalMillis
+		if { ![ thread::exists $::turtles::persistence::mt::recorder ] } {
 			error "Persistence mechanism is not running!"
 		}
 	} -body { [eval $testBody]
 	} -cleanup {
-		::turtles::persistence::stop
-		if { [ thread::exists $::turtles::persistence::recorder ] } {
+		::turtles::persistence::mt::stop
+		if { [ thread::exists $::turtles::persistence::mt::recorder ] } {
 			error "Persistence mechanism is still running!"
 		}
 	} -result $testResult
@@ -26,18 +26,18 @@ with_persistence_test {}
 with_persistence_test {} direct
 
 with_persistence_test {} staged 50 {
-	turtles::persistence::add_proc_id 1 ::one [clock microseconds]
-	turtles::persistence::add_call 0 1 0 [clock microseconds]
+	turtles::persistence::mt::add_proc_id 1 ::one [clock microseconds]
+	turtles::persistence::mt::add_call 0 1 0 [clock microseconds]
 	after 25
-	turtles::persistence::update_call 0 1 0 [clock microseconds] ::await_update
+	turtles::persistence::mt::update_call 0 1 0 [clock microseconds] ::await_update
 	# Since call is async thread::send, need to wait for call to actually be executed
 	# to check if corresponding finalization has occurred.
 	vwait ::await_update
 	# Double the purported finalize interval for engineering slop.
 	# There may be a lower bound on the Tcl event loop in terms of resolution.
 	after 100
-	thread::send $::turtles::persistence::recorder {
-		return [::turtles::persistence::stage1 eval {
+	thread::send $::turtles::persistence::mt::recorder {
+		return [::turtles::persistence::mt::stage1 eval {
 			SELECT calls FROM calls_by_caller_callee WHERE caller_name = '' AND callee_name = '::one';
 		}]
 	} result
@@ -45,13 +45,13 @@ with_persistence_test {} staged 50 {
 } 1
 
 with_persistence_test {} direct 50 {
-	turtles::persistence::add_proc_id 1 ::one [clock microseconds]
-	turtles::persistence::add_call 0 1 0 [clock microseconds]
+	turtles::persistence::mt::add_proc_id 1 ::one [clock microseconds]
+	turtles::persistence::mt::add_call 0 1 0 [clock microseconds]
 	after 25
-	turtles::persistence::update_call 0 1 0 [clock microseconds]
+	turtles::persistence::mt::update_call 0 1 0 [clock microseconds]
 	# No delay required. Direct write hits the final DB directly.
-	thread::send $::turtles::persistence::recorder {
-		return [::turtles::persistence::stage0 eval {
+	thread::send $::turtles::persistence::mt::recorder {
+		return [::turtles::persistence::mt::stage0 eval {
 			SELECT calls FROM calls_by_caller_callee WHERE caller_name = '' AND callee_name = '::one';
 		}]
 	} result
