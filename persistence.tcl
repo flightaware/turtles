@@ -3,6 +3,10 @@ package require Tcl     8.5 8.6
 package require Thread
 package require sqlite3
 
+# #!/usr/bin/env tclsh
+
+package require turtles::persistence::lambda 0.1
+
 ## \file persistence.tcl
 # Provides the mechanisms for the proc entry and exit handlers to persist
 # trace information about proc execution for the purpose of building call
@@ -119,13 +123,9 @@ proc ::turtles::persistence::init_views {stage} {
 # \param[in] procName proc name
 # \param[in] timeDefined the epoch time in microseconds at which the proc definition was invoked
 proc ::turtles::persistence::add_proc_id {procId procName timeDefined {awaiter {}}} {
-	thread::send -async $::turtles::persistence::recorder [subst {
-		::turtles::persistence::stage0 eval {
-			INSERT INTO proc_ids (proc_id, proc_name, time_defined)
-			VALUES($procId, '$procName', $timeDefined)
-			ON CONFLICT DO NOTHING;
-		}
-	}] $awaiter
+	set lambda [::turtles::persistence::lambda::add_proc_id $procId $procName $timeDefined]
+	#puts "add_proc_id: $lambda"
+	thread::send -async $::turtles::persistence::recorder $lambda $awaiter
 }
 
 ## Adds a call point to the call point table in the stage 0 persistence DB to record proc entry.
@@ -135,12 +135,9 @@ proc ::turtles::persistence::add_proc_id {procId procName timeDefined {awaiter {
 # \param[in] traceId identifier disambiguating calls on the same caller-callee edge in the call graph
 # \param[in] timeEnter the epoch time in microseconds at which the proc entry handler was triggered
 proc ::turtles::persistence::add_call {callerId calleeId traceId timeEnter {awaiter {}}} {
-	thread::send -async $::turtles::persistence::recorder [subst {
-		::turtles::persistence::stage0 eval {
-			INSERT INTO call_pts (caller_id, callee_id, trace_id, time_enter)
-			VALUES($callerId, $calleeId, $traceId, $timeEnter);
-		}
-	}] $awaiter
+	set lambda [::turtles::persistence::lambda::add_call $callerId $calleeId $traceId $timeEnter]
+	#puts "add_call: $lambda"
+	thread::send -async $::turtles::persistence::recorder $lambda $awaiter
 }
 
 ## Updates a previously added call point in the call point table in the stage 0 persistence DB to record proc exit.
@@ -150,12 +147,9 @@ proc ::turtles::persistence::add_call {callerId calleeId traceId timeEnter {awai
 # \param[in] traceId identifier disambiguating calls on the same caller-callee edge in the call graph
 # \param[in] timeLeave the epoch time in microseconds at which the proc exit handler was triggered
 proc ::turtles::persistence::update_call {callerId calleeId traceId timeLeave {awaiter {}}} {
-	thread::send -async $::turtles::persistence::recorder [subst {
-		::turtles::persistence::stage0 eval {
-			UPDATE call_pts SET time_leave = $timeLeave
-			WHERE caller_id = $callerId AND callee_id = $calleeId AND trace_id = $traceId AND time_leave IS NULL;
-		}
-	}] $awaiter
+	set lambda [::turtles::persistence::lambda::update_call $callerId $calleeId $traceId $timeLeave]
+	#puts "update_call: $lambda"
+	thread::send -async $::turtles::persistence::recorder $lambda $awaiter
 }
 
 ## The self-perpetuating worker that continually transfers ephemeral trace information to the finalized DB.
@@ -228,7 +222,7 @@ proc ::turtles::persistence::start {finalDB {commitMode staged} {intervalMillis 
 				package require Tcl 8.5 8.6
 				package require Thread
 				package require sqlite3
-				source $::turtles::persistence::script
+				package require turtles::persistence
 				::turtles::persistence::init_stage ::turtles::persistence::stage0
 				::turtles::persistence::init_stage ::turtles::persistence::stage1 $finalDB
 				thread::wait
@@ -236,7 +230,7 @@ proc ::turtles::persistence::start {finalDB {commitMode staged} {intervalMillis 
 			set ::turtles::persistence::scheduler [thread::create [subst {
 				package require Tcl 8.5 8.6
 				package require Thread
-				source $::turtles::persistence::script
+				package require turtles::persistence
 				# Pass recorder thread ID to scheduler.
 				::turtles::persistence::start_finalizer $::turtles::persistence::recorder ::turtles::persistence::stage0 ::turtles::persistence::stage1 $intervalMillis
 				vwait ::turtles::persistence::scheduler_off
@@ -247,7 +241,7 @@ proc ::turtles::persistence::start {finalDB {commitMode staged} {intervalMillis 
 				package require Tcl 8.5 8.6
 				package require Thread
 				package require sqlite3
-				source $::turtles::persistence::script
+				package require turtles::persistence
 				::turtles::persistence::init_stage ::turtles::persistence::stage0 $finalDB
 				thread::wait
 			}]]
@@ -341,18 +335,14 @@ proc ::turtles::persistence::stop_finalizer {recorderThread stage0 stage1} {
 proc ::turtles::persistence::stop {} {
 	# Stop scheduler worker thread.
 	if { [info exists ::turtles::persistence::scheduler] && [thread::exists $::turtles::persistence::scheduler] } {
-		thread::send $turtles::persistence::scheduler [subst {
-			::turtles::persistence::stop_finalizer $::turtles::persistence::recorder ::turtles::persistence::stage0 ::turtles::persistence::stage1
-			set ::turtles::persistence::scheduler_off 1
-		}]
+		set lambda [::turtles::persistence::lambda::stop_scheduler $::turtles::persistence::recorder]
+		thread::send $turtles::persistence::scheduler $lambda
 	}
 
 	# Stop recorder worker thread.
 	if { [info exists ::turtles::persistence::recorder] && [thread::exists $::turtles::persistence::recorder] } {
-		thread::send $turtles::persistence::recorder {
-			::turtles::persistence::close_stage ::turtles::persistence::stage1
-			::turtles::persistence::close_stage ::turtles::persistence::stage0
-		}
+		set lambda [::turtles::persistence::lambda::stop_recorder]
+		thread::send $turtles::persistence::recorder $lambda
 		thread::release $::turtles::persistence::recorder
 		thread::join $::turtles::persistence::recorder
 	}
