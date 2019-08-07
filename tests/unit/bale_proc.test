@@ -4,7 +4,7 @@ package require tcltest
 namespace import ::tcltest::*
 
 set testDirectory [file join [file dirname [file normalize [info script]]]] 
-source ../bale/proc.tcl
+package require turtles::bale::proc
 
 namespace import ::turtles::bale::proc::*
 

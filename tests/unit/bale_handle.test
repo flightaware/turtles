@@ -3,11 +3,13 @@
 package require tcltest
 namespace import ::tcltest::*
 
-set testDirectory [file join [file dirname [file normalize [info script]]]] 
-source ../kmm.tcl
-source ../bale/proc.tcl
-source ../bale/machine.tcl
-source ../bale/handle.tcl
+set testDirectory [file join [file dirname [file normalize [info script]]]]
+
+package require turtles::kmm
+package require turtles::bale::proc
+package require turtles::bale::machine
+package require turtles::bale::handle
+
 namespace import ::turtles::bale::handle::*
 
 # Ground state for isolated proc

@@ -1,6 +1,5 @@
 #!/usr/bin/env tclsh
 
-lappend auto_path ../..
 package require turtles 0.1
 package require Thread
 package require tcltest

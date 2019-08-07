@@ -5,7 +5,7 @@ package require Thread
 namespace import ::tcltest::*
 
 # Module under test
-source ../persistence.tcl
+package require turtles::persistence
 
 proc with_persistence_test {finalDB {commitMode staged} {intervalMillis 1000} {testBody {return 1}} {testResult 1}} {
 	test with_persistence [subst {with_persistence $finalDB $commitMode $intervalMillis}] -setup {

@@ -4,7 +4,7 @@ package require tcltest
 namespace import ::tcltest::*
 
 # Module under test
-source ../hashing.tcl
+package require turtles::hashing
 
 ## Convenience function for unit testing the \c ::turtles::hashing::hash_string proc.
 #

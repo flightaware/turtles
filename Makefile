@@ -55,7 +55,7 @@ test-package: tests/all.tcl \
 	      tests/unit/*.test \
 	      tests/functional/*.test \
               tests/integration/helpers.tcl tests/integration/*.test
-	@cd tests && tclsh all.tcl
+	@cd tests && env TCLLIBPATH=$(abspath .) tclsh all.tcl
 
 %/pkgIndex.tcl: $(shell find . -name '*.tcl' | grep -v pkgIndex.tcl)
 	echo "pkg_mkIndex $*" | $(TCLSH)
