@@ -49,7 +49,7 @@ all:
 
 install: install-package install-docs
 
-package: ./pkgIndex.tcl
+package: $(abspath .)/pkgIndex.tcl
 
 test-package: tests/all.tcl \
 	      tests/unit/*.test \
@@ -57,8 +57,8 @@ test-package: tests/all.tcl \
               tests/integration/helpers.tcl tests/integration/*.test
 	@cd tests && env TCLLIBPATH=$(abspath .) tclsh all.tcl
 
-%/pkgIndex.tcl: $(shell find . -name '*.tcl' | grep -v pkgIndex.tcl)
-	echo "pkg_mkIndex $*" | $(TCLSH)
+%/pkgIndex.tcl: $(shell find . -name '*.tcl' | grep -v %/pkgIndex.tcl)
+	echo "pkg_mkIndex -verbose $* " | $(TCLSH)
 
 install-package: pkgIndex.tcl docs test-package
 	@echo ----- installing package
