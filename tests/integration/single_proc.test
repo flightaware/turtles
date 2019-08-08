@@ -1,21 +1,37 @@
 #!/usr/bin/env tclsh
 
-set testDirectory [file join [file dirname [file normalize [info script]]]] 
-source [file join $testDirectory helpers.tcl]
+package require tcltest
+package require turtles::test::integration::mt
+package require turtles::test::integration::ev
+namespace import ::tcltest::*
 
-with_turtles "Single proc trace" staged 50 {
-	proc noop {} { return }
+set noop_staged_test {
+	proc ::noop {} { return }
 	noop
 	after 100
+	update
 	test_caller_callee_count stage1 {} {::noop} 1
 	return 1
 }
 
-with_turtles "Single proc trace" direct 50 {
-	proc noop {} { return }
+set noop_direct_test {
+	proc ::noop {} { return }
 	noop
 	test_caller_callee_count stage0 {} {::noop} 1
 	return 1
+
 }
+
+namespace import ::turtles::test::integration::mt::*
+
+with_turtles "Single proc trace (mt)" staged 50 [subst {$noop_staged_test}]
+with_turtles "Single proc trace (mt)" direct 50 [subst {$noop_direct_test}]
+
+namespace forget ::turtles::test::integration::mt::*
+namespace import ::turtles::test::integration::ev::*
+
+with_turtles "Single proc trace (ev)" staged 50 [subst {$noop_staged_test}]
+with_turtles "Single proc trace (ev)" direct 50 [subst {$noop_direct_test}]
+
 
 cleanupTests

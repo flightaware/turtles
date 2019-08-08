@@ -1,43 +1,52 @@
 #!/usr/bin/env tclsh
 
-set testDirectory [file join [file dirname [file normalize [info script]]]] 
-source [file join $testDirectory helpers.tcl]
+package require tcltest
+package require turtles::test::integration::mt
+package require turtles::test::integration::ev
+namespace import ::tcltest::*
 
-with_turtles "Nested proc trace" staged 50 {
-	proc a {} {
-		return [b]
-	}
-	
-	proc b {} {
-		return 0
-	}
+set defs {
+
+}
+
+namespace import turtles::test::integration::mt::*
+
+set ab_staged_test {
+	proc ::a {} { return [b] }
+	proc ::b {} { return 0 }
 
 	b
 	a
 	after 100
+	# NB: This update is crucial for the ev tests.
+	# It should be harmless for the mt tests.
+	update
 	test_caller_callee_count {stage1} {} {::b} 1
 	test_caller_callee_count {stage1} {} {::a} 1
 	test_caller_callee_count {stage1} {::a} {::b} 1
 	return 1
 }
 
-with_turtles "Nested proc trace" direct 50 {
-	proc a {} {
-		return [b]
-	}
-	
-	proc b {} {
-		return 0
-	}
+set ab_direct_test {
+	proc ::a {} { return [b] }
+	proc ::b {} { return 0 }
 
 	b
 	a
-
 	test_caller_callee_count {stage0} {} {::b} 1
 	test_caller_callee_count {stage0} {} {::a} 1
 	test_caller_callee_count {stage0} {::a} {::b} 1
 	return 1
 }
+
+with_turtles "Nested proc trace (mt) " staged 50 [subst {$ab_staged_test}]
+with_turtles "Nested proc trace (mt) " direct 50 [subst {$ab_direct_test}]
+
+namespace forget turtles::test::integration::mt::*
+namespace import turtles::test::integration::ev::*
+
+with_turtles "Nested proc trace (ev) " staged 50 [subst {$ab_staged_test}]
+with_turtles "Nested proc trace (ev) " direct 50 [subst {$ab_direct_test}]
 
 
 cleanupTests
