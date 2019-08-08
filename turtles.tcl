@@ -10,6 +10,7 @@ package require Tcl                  8.5 8.6
 package require Thread
 package require turtles::hashing     0.1
 package require turtles::persistence::mt 0.1
+package require turtles::persistence::ev 0.1
 
 ## The package namespace.
 namespace eval ::turtles {
@@ -43,7 +44,7 @@ proc ::turtles::on_proc_enter {commandString op} {
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
 	regsub {tid} [ thread::id ] {} threadId
 	set srcLine  [ dict get $execFrame line]
-	set stackLvl [ info level ]
+	set stackLvl [ uplevel { info level } ]
 	# Set the unique trace ID for this exact call point.
 	# The trace ID is a hash of the current thread, stack level, caller, source line, and callee.
 	set traceId [ ::turtles::hashing::hash_int_list [list $threadId $stackLvl $callerId $srcLine $calleeId] ]
@@ -53,7 +54,7 @@ proc ::turtles::on_proc_enter {commandString op} {
 	if { [info exists ::turtles::debug] } {
 		puts stderr "\[$timeEnter:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
 	}
-	::turtles::persistence::mt::add_call $callerId $calleeId $traceId $timeEnter
+	::turtles::persistence::add_call $callerId $calleeId $traceId $timeEnter
 }
 
 ## Handler for proc exit.
@@ -87,14 +88,14 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
 	regsub {tid} [ thread::id ] {} threadId
 	set srcLine  [ dict get $execFrame line]
-	set stackLvl [ info level ]
+	set stackLvl [ uplevel { info level } ]
 	# The trace ID is a hash of the current thread, stack level, caller, source line, and callee.
 	set traceId [ ::turtles::hashing::hash_int_list [list $threadId $stackLvl $callerId $srcLine $calleeId] ]
 	# Record exit from proc.
 	if { [info exists ::turtles::debug] } {
 		puts stderr "\[$timeLeave:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
 	}
-	::turtles::persistence::mt::update_call $callerId $calleeId $traceId $timeLeave
+	::turtles::persistence::update_call $callerId $calleeId $traceId $timeLeave
 }
 
 ## Handler for injecting entry and exit handlers.
@@ -118,6 +119,9 @@ proc ::turtles::on_proc_define_add_trace {commandString code result op} {
 		# Proceed only if we can resolve the proc name.
 		if { $procName ne {} } {
 			::turtles::add_proc_trace $procName
+			if [info exists ::turtles::debug] {
+				puts "on_proc_define_add_trace: $procName"
+			}
 		}
 	}
 }
@@ -133,7 +137,7 @@ proc ::turtles::add_proc_trace {procName} {
 	set procId [::turtles::hashing::hash_string $procName]
 	set timeDefined [clock microseconds]
 	# Add the proc ID hash to the lookup table and the list of traced procs.
-	::turtles::persistence::mt::add_proc_id $procId $procName $timeDefined
+	::turtles::persistence::add_proc_id $procId $procName $timeDefined
 	lappend ::turtles::tracedProcs $procName
 	# Add handler for proc entry.
 	if { [ catch { trace add execution $procName [list enter] ::turtles::on_proc_enter } err ] } {
@@ -151,32 +155,38 @@ proc ::turtles::add_proc_trace {procName} {
 # This function binds to the \c proc command so that any proc declared after invocation
 # will have the entry and exit handlers bound to it.
 #
-# The necessary arguments to \c ::turtles::persistence::mt::start are exposed here as pass-through arguments.
+# The necessary arguments to \c ::turtles::persistence::start are exposed here as pass-through arguments.
 #
 # \param[in] finalDB the file for finalized persistence as a sqlite DB [default: turtles-[clock microseconds].db]
 # \param[in] commitMode the mode for persistence (\c staged | \c direct) [default: \c staged]
 # \param[in] intervalMillis the number of milliseconds between stage transfers [default: 30000]
-proc ::turtles::release_the_turtles {{finalDB "turtles-[clock microseconds].db"} {commitMode staged} {intervalMillis 30000}} {
-	# Start the persistence mechanism now so it's ready once the hooks are added.
-	::turtles::persistence::mt::start $finalDB $commitMode $intervalMillis
+proc ::turtles::release_the_turtles {{finalDB "turtles-[clock microseconds].db"} {commitMode staged} {intervalMillis 30000} {mode mt}} {
+	# Initialize the ghost namespace based on the given or implicit mode parameter.
+	namespace eval ::turtles::persistence {
+		namespace import ::turtles::persistence::[uplevel { subst {$mode} }]::*
+		namespace export *
+	}
+
+	# Start the persistence mechanism now so it's ready once the hooks are added. Sinks before sources!
+	::turtles::persistence::start $finalDB $commitMode $intervalMillis
 
 	# Bootstrap the proc IDs for the ::turtles namespace and its children
 	# so that the standard views make sense.
 	foreach procName [ concat \
 						   [info procs ::turtles::*] \
 						   [info procs ::turtles::hashing::*] \
-						   [info procs ::turtles::persistence::mt::*] ] {
+						   [info procs ::turtles::persistence::*] ] {
 		# Calculate the proc ID hash and set the time defined.
 		set procId [::turtles::hashing::hash_string $procName]
 		set timeDefined [clock microseconds]
 		# Add the proc ID hash to the lookup table and the list of traced procs.
-		::turtles::persistence::mt::add_proc_id $procId $procName $timeDefined
+		::turtles::persistence::add_proc_id $procId $procName $timeDefined
 	}
 
 	# Initialize an empty list of procs being traced.
 	set ::turtles::tracedProcs [list]
 	# Add a trigger for the proc command to add a handler for the newly defined proc.
-	trace add execution proc [list leave] ::turtles::on_proc_define_add_trace
+	trace add execution {proc} [list leave] ::turtles::on_proc_define_add_trace
 }
 
 ## User-level convenience function for ending automatic \c proc instrumentation
@@ -184,13 +194,19 @@ proc ::turtles::release_the_turtles {{finalDB "turtles-[clock microseconds].db"}
 #
 # NB: This function removes all the trace hooks before stopping the persistence mechanism.
 proc ::turtles::capture_the_turtles {} {
+	# Remove the trace hooks.
 	trace remove execution proc [list leave] ::turtles::on_proc_define_add_trace
 	foreach handledProc $::turtles::tracedProcs {
 		trace remove execution $handledProc [list enter] ::turtles::on_proc_enter
 		trace remove execution $handledProc [list leave] ::turtles::on_proc_leave
 	}
+	# Undefine the list of traced procs.
 	unset ::turtles::tracedProcs
-	::turtles::persistence::mt::stop
+	# Empty the ghost namespace of all functionality.
+	::turtles::persistence::stop
+	namespace eval ::turtles::persistence {
+		namespace forget *
+	}
 }
 
 package provide turtles          0.1
