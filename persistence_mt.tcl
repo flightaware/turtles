@@ -9,7 +9,9 @@ package require turtles::persistence::base 0.1
 namespace eval ::turtles::persistence::mt {
 	variable recorder
 	variable scheduler
-	namespace export start stop add_proc_id add_call update_call
+	variable stage0
+	variable stage1
+	namespace export start stop add_proc_id add_call update_call recorder scheduler stage0 stage1
 }
 
 ## \file persistence.tcl
