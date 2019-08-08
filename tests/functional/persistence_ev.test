@@ -23,7 +23,6 @@ with_persistence_test {} staged 50 {
 	turtles::persistence::ev::add_proc_id 1 ::one [clock microseconds]
 	turtles::persistence::ev::add_call 0 1 0 [clock microseconds]
 	after 25
-	puts "here"
 	turtles::persistence::ev::update_call 0 1 0 [clock microseconds]
 	# Double the purported finalize interval for engineering slop.
 	# There may be a lower bound on the Tcl event loop in terms of resolution.
