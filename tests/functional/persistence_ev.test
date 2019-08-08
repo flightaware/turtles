@@ -1,0 +1,48 @@
+## \file persistence.test
+
+package require tcltest
+package require Thread
+namespace import ::tcltest::*
+
+# Module under test
+package require turtles::persistence::ev
+
+proc with_persistence_test {finalDB {commitMode staged} {intervalMillis 1000} {testBody {return 1}} {testResult 1}} {
+	test with_persistence [subst {with_persistence $finalDB $commitMode $intervalMillis}] -setup {
+		::turtles::persistence::ev::start $finalDB $commitMode $intervalMillis
+	} -body { [eval $testBody]
+	} -cleanup {
+		::turtles::persistence::ev::stop
+	} -result $testResult
+}
+
+with_persistence_test {}
+with_persistence_test {} direct
+
+with_persistence_test {} staged 50 {
+	turtles::persistence::ev::add_proc_id 1 ::one [clock microseconds]
+	turtles::persistence::ev::add_call 0 1 0 [clock microseconds]
+	after 25
+	puts "here"
+	turtles::persistence::ev::update_call 0 1 0 [clock microseconds]
+	# Double the purported finalize interval for engineering slop.
+	# There may be a lower bound on the Tcl event loop in terms of resolution.
+	after 100
+	update
+	return [::turtles::persistence::ev::stage1 eval {
+		SELECT calls FROM calls_by_caller_callee WHERE caller_name = '' AND callee_name = '::one';
+	}]
+} 1
+
+with_persistence_test {} direct 50 {
+	turtles::persistence::ev::add_proc_id 1 ::one [clock microseconds]
+	turtles::persistence::ev::add_call 0 1 0 [clock microseconds]
+	after 25
+	turtles::persistence::ev::update_call 0 1 0 [clock microseconds]
+	# No delay required. Direct write hits the final DB directly.
+	return [::turtles::persistence::ev::stage0 eval {
+		SELECT calls FROM calls_by_caller_callee WHERE caller_name = '' AND callee_name = '::one';
+	}]
+} 1
+
+cleanupTests
