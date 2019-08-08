@@ -193,7 +193,7 @@ proc ::turtles::persistence::base::stop_finalizer {nextRef} {
 proc ::turtles::persistence::base::stop_recorder {stage0 stage1} {
 	if { [info comm $stage1] ne {} } {
 		# Do a last finalize to pick up any missing trace information.
-		::turtles::persistence::finalize $stage0 $stage1
+		::turtles::persistence::base::finalize $stage0 $stage1
 		::turtles::persistence::base::close_stage $stage1
 	}
 	::turtles::persistence::base::close_stage $stage0
