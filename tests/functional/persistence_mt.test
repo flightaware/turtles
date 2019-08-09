@@ -7,25 +7,26 @@ namespace import ::tcltest::*
 # Module under test
 package require turtles::persistence::mt
 
-proc with_persistence_test {finalDB {commitMode staged} {intervalMillis 1000} {testBody {return 1}} {testResult 1}} {
-	test with_persistence [subst {with_persistence $finalDB $commitMode $intervalMillis}] -setup {
-		::turtles::persistence::mt::start $finalDB $commitMode $intervalMillis
+proc with_persistence_test {{commitMode staged} {intervalMillis 1000} {testBody {return 1}} {testResult 1}} {
+	test with_persistence [subst {with_persistence $commitMode $intervalMillis}] -setup {
+		::turtles::persistence::mt::start $commitMode $intervalMillis
 		if { ![ thread::exists $::turtles::persistence::mt::recorder ] } {
 			error "Persistence mechanism is not running!"
 		}
 	} -body { [eval $testBody]
 	} -cleanup {
 		::turtles::persistence::mt::stop
+		file delete [::turtles::persistence::base::get_db_filename]
 		if { [ thread::exists $::turtles::persistence::mt::recorder ] } {
 			error "Persistence mechanism is still running!"
 		}
 	} -result $testResult
 }
 
-with_persistence_test {}
-with_persistence_test {} direct
+with_persistence_test
+with_persistence_test direct
 
-with_persistence_test {} staged 50 {
+with_persistence_test staged 50 {
 	turtles::persistence::mt::add_proc_id 1 ::one [clock microseconds]
 	turtles::persistence::mt::add_call 0 1 0 [clock microseconds]
 	after 25
@@ -44,7 +45,7 @@ with_persistence_test {} staged 50 {
 	return $result
 } 1
 
-with_persistence_test {} direct 50 {
+with_persistence_test direct 50 {
 	turtles::persistence::mt::add_proc_id 1 ::one [clock microseconds]
 	turtles::persistence::mt::add_call 0 1 0 [clock microseconds]
 	after 25

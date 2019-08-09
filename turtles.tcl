@@ -7,6 +7,8 @@
 #
 
 package require Tcl                  8.5 8.6
+lappend auto_path "/usr/local/opt/tclx/lib"
+package require Tclx
 package require Thread
 package require turtles::hashing     0.1
 package require turtles::persistence::mt 0.1
@@ -157,18 +159,36 @@ proc ::turtles::add_proc_trace {procName} {
 #
 # The necessary arguments to \c ::turtles::persistence::start are exposed here as pass-through arguments.
 #
-# \param[in] finalDB the file for finalized persistence as a sqlite DB [default: turtles-[clock microseconds].db]
 # \param[in] commitMode the mode for persistence (\c staged | \c direct) [default: \c staged]
 # \param[in] intervalMillis the number of milliseconds between stage transfers [default: 30000]
-proc ::turtles::release_the_turtles {{finalDB "turtles-[clock microseconds].db"} {commitMode staged} {intervalMillis 30000} {mode mt}} {
+# \param[in] dbPath the path where the finalized persistence is stored as a sqlite DB [default: ./]
+# \param[in] dbPrefix the filename prefix of the finalized persistence is stored as a sqlite DB. The PID and .db extension are appended [default: turtles]
+# \param[in] mode the scheduling mode (\c mt | \c ev)
+proc ::turtles::release_the_turtles {{commitMode staged} {intervalMillis 30000} {dbPath {./}} {dbPrefix {turtles}} {mode mt}} {
+
 	# Initialize the ghost namespace based on the given or implicit mode parameter.
 	namespace eval ::turtles::persistence {
 		namespace import ::turtles::persistence::[uplevel { subst {$mode} }]::*
 		namespace export *
 	}
 
+	proc ::turtles::pre_fork {commandString op} {
+		::turtles::persistence::stop
+	}
+
+	eval [subst {
+		proc ::turtles::post_fork {commandString result code op} {
+			::turtles::persistence::start $commitMode $intervalMillis $dbPath $dbPrefix
+		}
+	}]
+
+	# Add guards for forking.
+	trace add execution {fork} [list enter] ::turtles::pre_fork
+	trace add execution {fork} [list leave] ::turtles::post_fork
+
+
 	# Start the persistence mechanism now so it's ready once the hooks are added. Sinks before sources!
-	::turtles::persistence::start $finalDB $commitMode $intervalMillis
+	::turtles::persistence::start $commitMode $intervalMillis $dbPath $dbPrefix
 
 	# Bootstrap the proc IDs for the ::turtles namespace and its children
 	# so that the standard views make sense.
@@ -195,7 +215,10 @@ proc ::turtles::release_the_turtles {{finalDB "turtles-[clock microseconds].db"}
 # NB: This function removes all the trace hooks before stopping the persistence mechanism.
 proc ::turtles::capture_the_turtles {} {
 	# Remove the trace hooks.
-	trace remove execution proc [list leave] ::turtles::on_proc_define_add_trace
+	trace remove execution {proc} [list leave] ::turtles::on_proc_define_add_trace
+	trace remove execution {fork} [list enter] ::turtles::pre_fork
+	trace remove execution {fork} [list leave] ::turtles::post_fork
+
 	foreach handledProc $::turtles::tracedProcs {
 		trace remove execution $handledProc [list enter] ::turtles::on_proc_enter
 		trace remove execution $handledProc [list leave] ::turtles::on_proc_leave

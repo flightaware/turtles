@@ -94,18 +94,20 @@ proc ::turtles::persistence::ev::update_call {callerId calleeId traceId timeLeav
 #
 # Note that in \c direct mode the persistence model writes directly to the final DB.
 #
-# \param[in] finalDB the file for finalized persistence as a sqlite DB
 # \param[in] commitMode the mode for persistence (\c staged | \c direct) [default: \c staged]
 # \param[in] intervalMillis the number of milliseconds between stage transfers [default: 30000]
-proc ::turtles::persistence::ev::start {finalDB {commitMode staged} {intervalMillis 30000}} {
+# \param[in] dbPath the path where the finalized persistence is stored as a sqlite DB [default: ./]
+# \param[in] dbPrefix the filename prefix of the finalized persistence is stored as a sqlite DB. The PID and .db extension are appended [default: turtles]
+proc ::turtles::persistence::ev::start {{commitMode staged} {intervalMillis 30000} {dbPath ./} {dbPrefix {turtles}}} {
+	set fqdb [turtles::persistence::base::get_db_filename $dbPath $dbPrefix]
 	switch $commitMode {
 		staged {
-				::turtles::persistence::base::init_stage [namespace current]::stage0
-				::turtles::persistence::base::init_stage [namespace current]::stage1 $finalDB
+			::turtles::persistence::base::init_stage [namespace current]::stage0
+			::turtles::persistence::base::init_stage [namespace current]::stage1 $fqdb
 			::turtles::persistence::ev::start_finalizer [namespace current]::nextFinalizeCall [namespace current]::stage0 [namespace current]::stage1 $intervalMillis
 		}
 		direct {
-				::turtles::persistence::base::init_stage [namespace current]::stage0 $finalDB
+			::turtles::persistence::base::init_stage [namespace current]::stage0 $fqdb
 		}
 		default {
 			error "::turtles::persistence::start: invalid commit mode '$commitMode'. Valid options are 'staged' or 'direct'."

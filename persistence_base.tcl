@@ -10,10 +10,14 @@ package require Tcl 8.5 8.6
 namespace eval ::turtles::persistence::base {
 	variable nextFinalizeCall
 	namespace export \
+		get_db_filename \
 		script add_proc_id add_call update_call \
 		init_proc_id_table init_call_pt_table init_views \
 		init_stage close_stage \
 		finalize nextFinalizeCall
+}
+proc ::turtles::persistence::base::get_db_filename {{dbPath {./}} {dbPrefix {turtles}}} {
+	return [file normalize [file join $dbPath [subst {$dbPrefix-[pid].db}]]]
 }
 
 proc ::turtles::persistence::base::add_proc_id {stage procId procName timeDefined} {
@@ -120,7 +124,8 @@ proc ::turtles::persistence::base::finalize {stage0 stage1} {
 		} values {
 			$stage1 eval {
 				INSERT INTO proc_ids (proc_id, proc_name, time_defined)
-				VALUES ($values(proc_id), $values(proc_name), $values(time_defined));
+				VALUES ($values(proc_id), $values(proc_name), $values(time_defined))
+				ON CONFLICT DO NOTHING;
 			}
 		}
 		# Copy _finalized_ call points from the last finalized to the present into the final DB.
@@ -129,6 +134,9 @@ proc ::turtles::persistence::base::finalize {stage0 stage1} {
 			WHERE time_leave IS NOT NULL
 			  AND time_leave > $lastFinalizeTime
 		} values {
+			if { [info exists ::turtles::debug ] } {
+				puts stderr "finalize([pid]): $values(caller_id), $values(callee_id), $values(trace_id), $values(time_enter), $values(time_leave)"
+			}
 			$stage1 eval {
 				INSERT INTO call_pts (caller_id, callee_id, trace_id, time_enter, time_leave)
 				VALUES ($values(caller_id), $values(callee_id), $values(trace_id), $values(time_enter), $values(time_leave));

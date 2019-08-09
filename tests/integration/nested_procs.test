@@ -3,6 +3,7 @@
 package require tcltest
 package require turtles::test::integration::mt
 package require turtles::test::integration::ev
+package require turtles::test::integration::postmortem
 namespace import ::tcltest::*
 
 set defs {
@@ -17,7 +18,7 @@ set ab_staged_test {
 
 	b
 	a
-	after 100
+	after 200
 	# NB: This update is crucial for the ev tests.
 	# It should be harmless for the mt tests.
 	update
@@ -39,14 +40,21 @@ set ab_direct_test {
 	return 1
 }
 
-with_turtles "Nested proc trace (mt) " staged 50 [subst {$ab_staged_test}]
-with_turtles "Nested proc trace (mt) " direct 50 [subst {$ab_direct_test}]
+set post_mortem {
+	::turtles::test::integration::postmortem::test_caller_callee_counts [ list
+																		  {} {::b} 1
+																		  {} {::a} 1
+																		  {::a} {::b} 1 ]
+}
+
+with_turtles macOrUnix "Nested proc trace (mt) " staged 100 [subst {$ab_staged_test}] [subst {$post_mortem}]
+with_turtles macOrUnix "Nested proc trace (mt) " direct 100 [subst {$ab_direct_test}] [subst {$post_mortem}]
 
 namespace forget turtles::test::integration::mt::*
 namespace import turtles::test::integration::ev::*
 
-with_turtles "Nested proc trace (ev) " staged 50 [subst {$ab_staged_test}]
-with_turtles "Nested proc trace (ev) " direct 50 [subst {$ab_direct_test}]
+with_turtles macOrUnix "Nested proc trace (ev) " staged 100 [subst {$ab_staged_test}] [subst {$post_mortem}]
+with_turtles macOrUnix "Nested proc trace (ev) " direct 100 [subst {$ab_direct_test}] [subst {$post_mortem}]
 
 
 cleanupTests

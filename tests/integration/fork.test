@@ -1,0 +1,72 @@
+#!/usr/bin/env tclsh
+
+lappend auto_path "/usr/local/opt/tclx/lib"
+package require tcltest
+package require Tclx
+package require turtles::test::integration::ev
+package require turtles::test::integration::postmortem
+package require platform
+
+namespace import ::tcltest::*
+namespace import ::turtles::test::integration::ev::*
+
+
+with_turtles unix "Fork trace" staged 100 {
+	proc ::noop {} { return }
+	# Run before a fork, prepares the parent for forking
+	proc ::pre_fork {} {
+		# make sure we have no buffered data anywhere
+		foreach channel [file channels] {
+			set blocking [chan configure $channel -blocking]
+			chan configure $channel -blocking 1
+			catch {flush $channel}
+			chan configure $channel -blocking $blocking
+		}
+	}
+
+	# Runs in the child process after a fork. Cleans up everything that we inherited
+	# from the parent that we don't want in the child
+	proc ::post_fork {} {
+		# cancel all 'after' events running in the parent
+		foreach id [after info] {
+			after cancel $id
+		}
+
+		# close all channels except stdin/stdout/stderr
+		foreach channel [file channels] {
+			if {$channel ni {stdin stdout stderr}} {
+				catch {close $channel}
+			}
+		}
+	}
+
+
+    proc ::reap_child {childPID} {
+	    set waitRes [wait -nohang $childPID]
+	    if {$waitRes eq ""} {
+			# keep waiting for child to exit until we get a wait result
+			after 200 [list reap_child $childPID]
+	    }
+	}
+
+	proc ::forkme {} {
+		pre_fork
+		set pid [fork]
+		if { $pid < 0 } { error "Fork failed." }
+		post_fork
+		return $pid
+	}
+
+	noop
+
+	set pid [forkme]
+
+	noop
+
+	if { $pid > 0 } {
+		reap_child $pid
+	}
+	return 1
+} { ::turtles::test::integration::postmortem::test_caller_callee_counts [list {} {::noop} 2] }
+
+cleanupTests
