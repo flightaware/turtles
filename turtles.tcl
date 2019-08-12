@@ -7,7 +7,6 @@
 #
 
 package require Tcl                  8.5 8.6
-lappend auto_path "/usr/local/opt/tclx/lib"
 package require Tclx
 package require Thread
 package require turtles::hashing     0.1
@@ -177,7 +176,12 @@ proc ::turtles::release_the_turtles {{commitMode staged} {intervalMillis 30000} 
 	}
 
 	eval [subst {
-		proc ::turtles::post_fork {commandString result code op} {
+		proc ::turtles::post_fork {commandString code result op} {
+			# If the current process is a spawned child...
+			if { \$result == 0 } {
+				# Copy the DB at the parent's path to the child's path.
+				::turtles::persistence::base::copy_db_from_fork_parent $dbPath $dbPrefix
+			}
 			::turtles::persistence::start $commitMode $intervalMillis $dbPath $dbPrefix
 		}
 	}]
