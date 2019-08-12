@@ -9,9 +9,9 @@ package require platform
 
 namespace import ::tcltest::*
 namespace import ::turtles::test::integration::ev::*
+namespace import ::turtles::test::integration::postmortem::*
 
-
-with_turtles unix "Fork trace" staged 100 {
+with_turtles unix "Fork trace" staged 50 {
 	proc ::noop {} { return }
 	# Run before a fork, prepares the parent for forking
 	proc ::pre_fork {} {
@@ -58,15 +58,19 @@ with_turtles unix "Fork trace" staged 100 {
 	}
 
 	noop
+	after 200
+	update
 
 	set pid [forkme]
 
 	noop
+	after 200
+	update
 
 	if { $pid > 0 } {
 		reap_child $pid
 	}
 	return 1
-} { ::turtles::test::integration::postmortem::test_caller_callee_counts [list {} {::noop} 2] }
+} { test_caller_callee_counts [list {} {::noop} 2] }
 
 cleanupTests

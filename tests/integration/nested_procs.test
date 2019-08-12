@@ -18,7 +18,7 @@ set ab_staged_test {
 
 	b
 	a
-	after 200
+	after 500
 	# NB: This update is crucial for the ev tests.
 	# It should be harmless for the mt tests.
 	update
@@ -41,20 +41,20 @@ set ab_direct_test {
 }
 
 set post_mortem {
-	::turtles::test::integration::postmortem::test_caller_callee_counts [ list
-																		  {} {::b} 1
-																		  {} {::a} 1
+	::turtles::test::integration::postmortem::test_caller_callee_counts [ list \
+																		  {} {::b} 1 \
+																		  {} {::a} 1 \
 																		  {::a} {::b} 1 ]
 }
 
-with_turtles macOrUnix "Nested proc trace (mt) " staged 100 [subst {$ab_staged_test}] [subst {$post_mortem}]
-with_turtles macOrUnix "Nested proc trace (mt) " direct 100 [subst {$ab_direct_test}] [subst {$post_mortem}]
+with_turtles macOrUnix "Nested proc trace (mt) " staged 100 $ab_staged_test $post_mortem
+with_turtles macOrUnix "Nested proc trace (mt) " direct 100 $ab_direct_test $post_mortem
 
 namespace forget turtles::test::integration::mt::*
 namespace import turtles::test::integration::ev::*
 
-with_turtles macOrUnix "Nested proc trace (ev) " staged 100 [subst {$ab_staged_test}] [subst {$post_mortem}]
-with_turtles macOrUnix "Nested proc trace (ev) " direct 100 [subst {$ab_direct_test}] [subst {$post_mortem}]
+with_turtles macOrUnix "Nested proc trace (ev) " staged 100 $ab_staged_test $post_mortem
+with_turtles macOrUnix "Nested proc trace (ev) " direct 100 $ab_direct_test $post_mortem
 
 
 cleanupTests
