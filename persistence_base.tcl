@@ -32,18 +32,22 @@ proc ::turtles::persistence::base::add_proc_id {stage procId procName timeDefine
 
 proc ::turtles::persistence::base::add_call {stage callerId calleeId traceId timeEnter} {
 	return [subst {
-	    $stage eval {
-			INSERT INTO call_pts (caller_id, callee_id, trace_id, time_enter)
-			VALUES($callerId, $calleeId, $traceId, $timeEnter);
+		if { \[info comm $stage\] ne {} } {
+			$stage eval {
+				INSERT INTO call_pts (caller_id, callee_id, trace_id, time_enter)
+				VALUES($callerId, $calleeId, $traceId, $timeEnter);
+			}
 		}
 	}]
 }
 
 proc ::turtles::persistence::base::update_call {stage callerId calleeId traceId timeLeave} {
 	return [subst {
-		$stage eval {
-			UPDATE call_pts SET time_leave = $timeLeave
-			WHERE caller_id = $callerId AND callee_id = $calleeId AND trace_id = $traceId AND time_leave IS NULL;
+		if { \[info comm $stage\] ne {} } {
+			$stage eval {
+				UPDATE call_pts SET time_leave = $timeLeave
+				WHERE caller_id = $callerId AND callee_id = $calleeId AND trace_id = $traceId AND time_leave IS NULL;
+			}
 		}
 	}]
 }
