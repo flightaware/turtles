@@ -1,6 +1,7 @@
 #!/usr/bin/env tclsh
 
 package require Tcl 8.5 8.6
+package require Tclx
 
 ## \file persistence_base.tcl
 # Provides functions and lambda bodies common to both MT and event-loop versions
@@ -16,8 +17,19 @@ namespace eval ::turtles::persistence::base {
 		init_stage close_stage \
 		finalize nextFinalizeCall
 }
-proc ::turtles::persistence::base::get_db_filename {{dbPath {./}} {dbPrefix {turtles}}} {
-	return [file normalize [file join $dbPath [subst {$dbPrefix-[pid].db}]]]
+
+proc ::turtles::persistence::base::get_db_filename {{dbPath {./}} {dbPrefix {turtles}} {myPid {}}} {
+	if { $myPid eq {} } {
+		set myPid [pid]
+	}
+	return [file normalize [file join $dbPath [subst {$dbPrefix-$myPid.db}]]]
+}
+
+proc ::turtles::persistence::base::copy_db_from_fork_parent {{dbPath {./}} {dbPrefix {turtles}}} {
+	set ppid [id process parent]
+	file copy \
+		[::turtles::persistence::base::get_db_filename $dbPath $dbPrefix $ppid] \
+		[::turtles::persistence::base::get_db_filename $dbPath $dbPrefix]
 }
 
 proc ::turtles::persistence::base::add_proc_id {stage procId procName timeDefined} {
