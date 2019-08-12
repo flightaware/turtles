@@ -71,8 +71,12 @@ tags:
 	@/usr/local/bin/exctags -R .
 
 docs:
+ifeq ("$(shell which doxygen)", "")
+	@echo "No doxygen found. Skipping package documentation."
+else
 	@echo "Generating package documentation"
 	@doxygen
+endif
 
 install-docs:
 	@echo ----- installing package docs
