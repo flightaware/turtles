@@ -33,10 +33,12 @@ proc ::turtles::persistence::base::copy_db_from_fork_parent {{dbPath {./}} {dbPr
 }
 
 proc ::turtles::persistence::base::add_proc_id {stage procId procName timeDefined} {
+	regsub -all {\\} $procName {\\\\} procNameBS
+	regsub -all {'} $procName {''} procNameSQ
 	return [subst {
 		$stage eval {
 			INSERT INTO proc_ids (proc_id, proc_name, time_defined)
-			VALUES($procId, '$procName', $timeDefined)
+			VALUES($procId, '$procNameSQ', $timeDefined)
 			ON CONFLICT DO NOTHING;
 		}
 	}]
