@@ -4,27 +4,7 @@ package require Thread
 package require tcltest
 package require turtles::persistence::base 0.1
 package require turtles 0.1
-
-namespace eval ::turtles::test::integration::postmortem {
-	namespace export test_caller_callee_counts
-}
-
-proc ::turtles::test::integration::postmortem::test_caller_callee_counts {expectations {dbPath {./}} {dbPrefix {turtles}}} {
-	set dbFilePath [::turtles::persistence::base::get_db_filename $dbPath $dbPrefix]
-	sqlite3 postmortem $dbFilePath
-	foreach {caller callee expected} $expectations {
-		postmortem eval [subst {
-			SELECT SUM(calls) AS actual FROM calls_by_caller_callee WHERE caller_name = '$caller' AND callee_name = '$callee';
-		}] {
-			if { $actual != $expected } {
-				error  "Expected ($expected) calls for '$caller' -> '$callee', but actually got ($actual)."
-			}
-		}
-	}
-	postmortem close
-}
-
-package provide turtles::test::integration::postmortem 0.1
+package require turtles::test::integration::postmortem 0.1
 
 namespace eval ::turtles::test::integration::mt {
 	namespace export *
@@ -38,12 +18,9 @@ proc ::turtles::test::integration::mt::with_turtles {constraints title {commitMo
 			if { ![ thread::exists $::turtles::persistence::mt::recorder ] } {
 				error "Persistence mechanism is not running!"
 			}
-		} -body {
-			[eval $testBody]
-		} -cleanup {
-			::turtles::capture_the_turtles
-			#[eval $postMortemBody]
-			file delete [::turtles::persistence::base::get_db_filename $dbPath $dbPrefix]
+		} -body $testBody \
+		-cleanup {
+			::turtles::test::integration::postmortem::test_cleanup $postMortemBody $dbPath $dbPrefix
 			if { [ thread::exists $::turtles::persistence::mt::recorder ] } {
 				error "Persistence mechanism is still running!"
 			}
@@ -84,11 +61,9 @@ proc ::turtles::test::integration::ev::with_turtles {constraints title {commitMo
 		-constraints $constraints \
 		-setup {
 			::turtles::release_the_turtles $commitMode $intervalMillis $dbPath $dbPrefix ev
-		} -body {
-			[eval $testBody]
-		} -cleanup {
-			::turtles::capture_the_turtles
-			file delete [::turtles::persistence::base::get_db_filename $dbPath $dbPrefix]
+		} -body $testBody \
+     	-cleanup {
+			::turtles::test::integration::postmortem::test_cleanup $postMortemBody $dbPath $dbPrefix
 		} -result 1
 }
 
