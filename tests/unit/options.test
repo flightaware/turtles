@@ -1,0 +1,31 @@
+#!/usr/bin/env tclsh
+
+package require tcltest
+package require turtles::options
+
+namespace import ::tcltest::*
+
+proc test_consume {targv {targv'} result} {
+	test "::turtles::options::consume" "$targv" \
+		-body {
+			set actual [::turtles::options::consume targv]
+			if {$targv ne ${targv'}} {
+				error "Input args not properly consumed! Expected: ${targv'} / Actual: $targv"
+			}
+			return $actual
+		} -result $result
+}
+
+test_consume {} {} {}
+test_consume {-i} {-i} {}
+test_consume {-i something} {-i something} {}
+test_consume {-i something -o another} {-i something -o another} {}
+test_consume {+TURTLES -release -TURTLES} {} {-release}
+test_consume {+TURTLES -release -swim -TURTLES} {} {-release -swim}
+test_consume {+TURTLES -release -TURTLES +TURTLES -swim -TURTLES} {} {-release -swim}
+test_consume {-i something +TURTLES -release -TURTLES} {-i something} {-release}
+test_consume {+TURTLES -release -TURTLES -i something} {-i something} {-release}
+test_consume {-i something +TURTLES -release -TURTLES -o another} {-i something -o another} {-release}
+test_consume {-i something +TURTLES -release -TURTLES -o another +TURTLES -swim -TURTLES} {-i something -o another} {-release -swim}
+
+cleanupTests
