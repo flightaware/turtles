@@ -175,6 +175,9 @@ proc ::turtles::persistence::base::finalize {stage0 stage1} {
 # \param[in] stage the stage command (i.e., sqlite DB) to be used for this stage
 # \param[in] stageName the filename of the sqlite DB (default = \c :memory:)
 proc ::turtles::persistence::base::init_stage {stage {stageName :memory:}} {
+	if { $stageName ne {:memory:} && $stageName ne {} } {
+		file mkdir [file normalize [file dirname $stageName]]
+	}
 	sqlite3 $stage $stageName
 	::turtles::persistence::base::init_proc_id_table $stage
 	::turtles::persistence::base::init_call_pt_table $stage
