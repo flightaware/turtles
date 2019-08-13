@@ -11,9 +11,13 @@ namespace eval ::turtles::test::integration::mt {
 }
 
 proc ::turtles::test::integration::mt::with_turtles {constraints title {commitMode staged} {intervalMillis 50} testBody {postMortemBody { return }} {dbPath {./}} {dbPrefix {turtles}}} {
+	global ::argv
+	global ::oldargv
 	::tcltest::test with_turtles [subst {with_turtles "$title" $commitMode $intervalMillis}] \
 		-constraints $constraints \
 		-setup {
+			set ::oldargv $::argv
+			set ::argv "+TURTLES -enabled -TURTLES"
 			::turtles::release_the_turtles $commitMode $intervalMillis $dbPath $dbPrefix
 			if { ![ thread::exists $::turtles::persistence::mt::recorder ] } {
 				error "Persistence mechanism is not running!"
@@ -21,6 +25,7 @@ proc ::turtles::test::integration::mt::with_turtles {constraints title {commitMo
 		} -body $testBody \
 		-cleanup {
 			::turtles::test::integration::postmortem::test_cleanup $postMortemBody $dbPath $dbPrefix
+			set ::argv $::oldargv
 			if { [ thread::exists $::turtles::persistence::mt::recorder ] } {
 				error "Persistence mechanism is still running!"
 			}
@@ -57,13 +62,18 @@ namespace eval ::turtles::test::integration::ev {
 }
 
 proc ::turtles::test::integration::ev::with_turtles {constraints title {commitMode staged} {intervalMillis 50} testBody {postMortemBody { return }} {dbPath {./}} {dbPrefix {turtles}}} {
+	global ::argv
+	global ::oldargv
 	::tcltest::test with_turtles [subst {with_turtles "$title" $commitMode $intervalMillis}] \
 		-constraints $constraints \
 		-setup {
+			set ::oldargv $::argv
+			set ::argv "+TURTLES -enabled -TURTLES"
 			::turtles::release_the_turtles $commitMode $intervalMillis $dbPath $dbPrefix ev
 		} -body $testBody \
      	-cleanup {
 			::turtles::test::integration::postmortem::test_cleanup $postMortemBody $dbPath $dbPrefix
+			set ::argv $::oldargv
 		} -result 1
 }
 

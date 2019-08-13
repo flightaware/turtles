@@ -9,7 +9,9 @@
 package require Tcl                  8.5 8.6
 package require Tclx
 package require Thread
-package require turtles::hashing     0.1
+package require cmdline
+package require turtles::hashing         0.1
+package require turtles::options         0.1
 package require turtles::persistence::mt 0.1
 package require turtles::persistence::ev 0.1
 
@@ -17,6 +19,8 @@ package require turtles::persistence::ev 0.1
 namespace eval ::turtles {
 	namespace export release_the_turtles capture_the_turtles
 }
+
+
 
 ## Handler for proc entry.
 #
@@ -151,6 +155,40 @@ proc ::turtles::add_proc_trace {procName} {
 	}
 }
 
+proc ::turtles::hatch_the_turtles {_commitMode _intervalMillis _dbPath _dbPrefix _mode} {
+	# Prep variables for possible CL override.
+	upvar $_commitMode commitMode
+	upvar $_intervalMillis intervalMillis
+	upvar $_dbPath dbPath
+	upvar $_dbPrefix dbPrefix
+	upvar $_mode mode
+
+
+	set options {
+		{enabled "TURTLES enabled [disabled by default]"}
+		{commitMode.arg "" "Final commit mode: (staged|direct) [default=staged]"}
+		{intervalMillis.arg 0 "Interval between final commits (ms) [default=30000]"}
+		{dbPath.arg "" "Final DB directory path [default=./]"}
+		{dbPrefix.arg "" "Final DB name prefix [default=turtles]"}
+		{mode.arg "" "Finalizer scheduling (multi-threaded [mt] | event-loop [ev]) [default=mt]"}
+	}
+
+	set usage "+TURTLES ?options?"
+
+	set ::turtles::argv [::turtles::options::consume ::argv]
+	if { [catch {array set ::turtles::params [::cmdline::getoptions ::turtles::argv $options $usage]} catchResult] == 1 } {
+		puts stderr $catchResult
+		return 0
+	} else {
+		if { $::turtles::params(commitMode) ne {} } { set commitMode $::turtles::params(commitMode) }
+		if { $::turtles::params(intervalMillis) ne 0 } { set intervalMillis $::turtles::params(intervalMillis) }
+		if { $::turtles::params(dbPath) ne {} } { set commitMode $::turtles::params(dbPath) }
+		if { $::turtles::params(dbPrefix) ne {} } { set commitMode $::turtles::params(dbPrefix) }
+		if { $::turtles::params(mode) ne {} } { set commitMode $::turtles::params(mode) }
+		return $::turtles::params(enabled)
+	}
+}
+
 ## User-level convenience function for triggering automatic \c proc instrumentation.
 #
 # This function binds to the \c proc command so that any proc declared after invocation
@@ -164,6 +202,20 @@ proc ::turtles::add_proc_trace {procName} {
 # \param[in] dbPrefix the filename prefix of the finalized persistence is stored as a sqlite DB. The PID and .db extension are appended [default: turtles]
 # \param[in] mode the scheduling mode (\c mt | \c ev)
 proc ::turtles::release_the_turtles {{commitMode staged} {intervalMillis 30000} {dbPath {./}} {dbPrefix {turtles}} {mode mt}} {
+	# Initialize an empty list of procs being traced.
+	set ::turtles::tracedProcs [list]
+
+	# Determine whether or not to enable trace logging.
+	set enabled [::turtles::hatch_the_turtles commitMode intervalMillis dbPath dbPrefix mode]
+
+	# Set up dummy procs so that ::turtles::capture_the_turtles doesn't throw an error.
+	if { !$enabled } {
+		namespace eval ::turtles::persistence {
+			proc stop {} { return }
+			namespace export *
+		}
+		return
+	}
 
 	# Initialize the ghost namespace based on the given or implicit mode parameter.
 	namespace eval ::turtles::persistence {
@@ -207,8 +259,6 @@ proc ::turtles::release_the_turtles {{commitMode staged} {intervalMillis 30000} 
 		::turtles::persistence::add_proc_id $procId $procName $timeDefined
 	}
 
-	# Initialize an empty list of procs being traced.
-	set ::turtles::tracedProcs [list]
 	# Add a trigger for the proc command to add a handler for the newly defined proc.
 	trace add execution {proc} [list leave] ::turtles::on_proc_define_add_trace
 }
