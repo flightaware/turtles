@@ -15,16 +15,133 @@ package require turtles::options         0.1
 package require turtles::persistence::mt 0.1
 package require turtles::persistence::ev 0.1
 
-## The package namespace.
+## The main user-facing package namespace.
+#
+# Most users of this library will want to employ the following paradigm:
+# \code{.tcl}
+# package require turtles
+# ::turtles::release_the_turtles ::argv
+#
+# # code to trace including package imports
+#
+# ::turtles::capture_the_turtles
+# \endcode
+#
+# Any packages and procs for which the user wishes to collect trace information
+# MUST go after the invocation of \c ::turtles::release_the_turtles but
+# before the invocation of \c ::turtles::capture_the_turtles.
+# The library does not retroactively scan the list of defined procs but rather
+# works by adding a trace handler to the \c proc command, which in turn
+# adds trace handlers to every proc defined thereafter.
+#
+# A special handler is added to the \c ::Tclx::fork proc to enable the TURTLES
+# system to halt trace info collection prior to forking and resume after the fork
+# in both the parent and child.
+#
+# Trace handling is disabled by default. Any user wishing to enable TURTLES tracing
+# will need to add the following command line arguments to the Tcl program invocation:
+# \verbatim
+#   +TURTLES -enabled -TURTLES
+# \endverbatim
+#
+# All command-line configurable parameters for the TURTLES system must be bracketed
+# between \c +TURTLES and \c -TURTLES. These are consumed from the variable name reference
+# passed to \c ::turtles::release_the_turtles and excised for any future consumers of
+# the variable to make command-line parameter handling implicit and seamless.
+#
+# The TURTLES system supports two commit modes for trace info: \c staged and \c direct.
+# The \c staged mode writes trace info to an in-memory sqlite database which is periodically
+# flushed to a persistent sqlite database on disk. In \c direct mode, the trace info
+# is written directly to disk. This is configurable by the user via the \c -commitMode
+# TURTLES command-line parameter.
+#
+# The benefit of \c staged mode is that it should be less intrusive to the program execution
+# since the writeout to disk only occurs on a configurable interval determined by the
+# TURTLES command-line parameter \c -intervalMillis. Following are some sample command-line
+# argument snippets:
+#
+# Staged mode with finalization every 30 seconds (default)
+# \verbatim
+# +TURTLES -enabled -commitMode staged -TURTLES
+# \endverbatim
+#
+# Staged mode with finalization every 5 seconds
+# \verbatim
+# +TURTLES -enabled -commitMode staged -intervalMillis 5000 -TURTLES
+# \endverbatim
+#
+# The benefit of \c direct mode is that all trace info up to the point of program exit should be
+# available on disk even in the case of unexpected termination at the cost of performance.
+# A sample command-line argument snippet:
+#
+# \verbatim
+# +TURTLES -enabled -commitMode direct -TURTLES
+# \endverbatim
+#
+# By default, the finalized persistence database is stored to the current working directory
+# with the following name format:
+# \verbatim
+# turtles-${pid}.db
+# \endverbatim
+# Both the leading path and base filename prefix can be configured by the \c -dbPath and \c -dbPrefix
+# TURTLES command-line arguments, respectively. For instance:
+# \verbatim
+# +TURTLES -enabled -dbPath /tmp -dbPrefix my_program
+# \endverbatim
+# would yield a finalized database at /tmp/my_program-${pid}.db. The inclusion of the pid
+# is necessary for disambiguation in the case of forking.
+#
+# The TURTLES system also can operate in one of two scheduling modes, specified by the \c -scheduleMode
+# TURTLES command-line argument. The system defaults to \c mt, or multi-threaded, where separate
+# threads are launched to handle the actual writing of trace info to the database along with the
+# scheduling of the finalization when running in the \c staged commit mode. Since \c ::thread::create
+# launches a separate interpreter altogether, the scheduling thread can run independent of the rest
+# of the program but still use its own Tcl event loop to evoke periodic behavior.
+#
+# For most use cases in simple programs, this is sufficient, but the model does not support forking
+# since forks and threads don't mix. Once forked, the recorder and scheduler thread are rendered
+# moribund. To overcome this issue, the \c ev, i.e., event-loop, mode was developed. The tacit
+# assumption of this scheduling mode is that the program will sometime later enter the Tcl event
+# loop and permit the finalizer to schedule its periodic updates using the \c after command.
+#
+# The user should note that the support under forking is not impeccable and may suffer some
+# information loss across the fork boundary for calls in-flight close to the time of the fork.
+# Prior to the fork, the parent's trace database is flushed to disk and closed. After the fork, a copy
+# of the parent's trace database is made for the child with the pid suffix appropriately updated.
+# The parent reopens its own database, and the child opens the database newly created for it. In this way,
+# the child retains the trace information state of the parent in keeping with the notion that the
+# memory state of the parent passes to the child. Should the databases be merged post-hoc, the trace
+# information should be a proper union of the activity of parent and its child, provided that conflicts
+# resulting from the records duplicated from parent to child are ignored.
+#
+# Scheduling mode is specified from the command line as follows:
+#
+# Multi-threaded
+# \verbatim
+# +TURTLES -enabled -scheduleMode mt -TURTLES
+# \endverbatim
+# Event-loop
+# \verbatim
+# +TURTLES -enabled -scheduleMode ev -TURTLES
+# \endverbatim
 namespace eval ::turtles {
-	namespace export release_the_turtles capture_the_turtles
+	## Valid options to pass to the TURTLES system.
+	variable options
+	set options {
+		{enabled "TURTLES enabled (disabled by default)"}
+		{commitMode.arg staged "Final commit mode: (staged|direct)"}
+		{intervalMillis.arg 30000 "Interval between final commits (ms)"}
+		{dbPath.arg {./} "Final DB directory path"}
+		{dbPrefix.arg {turtles} "Final DB name prefix"}
+		{scheduleMode.arg mt "Finalizer scheduling mode (multi-threaded \[mt\] | event-loop \[ev\])"}
+	}
+	namespace export release_the_turtles capture_the_turtles options
 }
-
-
 
 ## Handler for proc entry.
 #
 # Note that this handler is triggered _before_ the proc has started execution.
+#
 # \param[in] commandString the command string to be executed
 # \param[in] op the operation (in this case, \c enter).
 proc ::turtles::on_proc_enter {commandString op} {
@@ -155,38 +272,33 @@ proc ::turtles::add_proc_trace {procName} {
 	}
 }
 
-proc ::turtles::hatch_the_turtles {_commitMode _intervalMillis _dbPath _dbPrefix _mode} {
-	# Prep variables for possible CL override.
-	upvar $_commitMode commitMode
-	upvar $_intervalMillis intervalMillis
-	upvar $_dbPath dbPath
-	upvar $_dbPrefix dbPrefix
-	upvar $_mode mode
+## Consumes TURTLES options from a given argv string reference.
+#
+# The function returns a dictionary with all params defined according
+# to user-supplied values or system defaults.
+#
+# NB: The variable behind the given argv string reference may be modified.
+# Any string snippets bracketed between +TURTLES ... -TURTLES will be removed.
+#
+# Valid options are defined in \c ::turtles::options.
+# \param[in,out] _argv variable name reference for an argv string
+proc ::turtles::hatch_the_turtles {_argv} {
+	upvar $_argv {argv'}
 
 
-	set options {
-		{enabled "TURTLES enabled [disabled by default]"}
-		{commitMode.arg "" "Final commit mode: (staged|direct) [default=staged]"}
-		{intervalMillis.arg 0 "Interval between final commits (ms) [default=30000]"}
-		{dbPath.arg "" "Final DB directory path [default=./]"}
-		{dbPrefix.arg "" "Final DB name prefix [default=turtles]"}
-		{mode.arg "" "Finalizer scheduling (multi-threaded [mt] | event-loop [ev]) [default=mt]"}
-	}
+	set usage "+TURTLES ?options? -TURTLES\nGiven '${argv'}'"
 
-	set usage "+TURTLES ?options?"
-
-	set ::turtles::argv [::turtles::options::consume ::argv]
-	if { [catch {array set ::turtles::params [::cmdline::getoptions ::turtles::argv $options $usage]} catchResult] == 1 } {
-		puts stderr $catchResult
-		return 0
+	set params [dict create]
+	set targv [::turtles::options::consume {argv'}]
+	if { [catch {set rawparams [::cmdline::getoptions targv $::turtles::options $usage]} catchResult] == 1 } {
+		puts stderr "catch result = $catchResult"
+		set params [dict create enabled 0]
 	} else {
-		if { $::turtles::params(commitMode) ne {} } { set commitMode $::turtles::params(commitMode) }
-		if { $::turtles::params(intervalMillis) ne 0 } { set intervalMillis $::turtles::params(intervalMillis) }
-		if { $::turtles::params(dbPath) ne {} } { set commitMode $::turtles::params(dbPath) }
-		if { $::turtles::params(dbPrefix) ne {} } { set commitMode $::turtles::params(dbPrefix) }
-		if { $::turtles::params(mode) ne {} } { set commitMode $::turtles::params(mode) }
-		return $::turtles::params(enabled)
+		foreach {k v} $rawparams {
+			dict set params $k $v
+		}
 	}
+	return $params
 }
 
 ## User-level convenience function for triggering automatic \c proc instrumentation.
@@ -194,32 +306,35 @@ proc ::turtles::hatch_the_turtles {_commitMode _intervalMillis _dbPath _dbPrefix
 # This function binds to the \c proc command so that any proc declared after invocation
 # will have the entry and exit handlers bound to it.
 #
-# The necessary arguments to \c ::turtles::persistence::start are exposed here as pass-through arguments.
+# Options are determined from the string behind the variable name reference and
+# must be placed within a +TURTLES ... -TURTLES snippet. The variable referred to
+# by the given argument is modified so that any bracketed TURTLES snippet is removed.
 #
-# \param[in] commitMode the mode for persistence (\c staged | \c direct) [default: \c staged]
-# \param[in] intervalMillis the number of milliseconds between stage transfers [default: 30000]
-# \param[in] dbPath the path where the finalized persistence is stored as a sqlite DB [default: ./]
-# \param[in] dbPrefix the filename prefix of the finalized persistence is stored as a sqlite DB. The PID and .db extension are appended [default: turtles]
-# \param[in] mode the scheduling mode (\c mt | \c ev)
-proc ::turtles::release_the_turtles {{commitMode staged} {intervalMillis 30000} {dbPath {./}} {dbPrefix {turtles}} {mode mt}} {
+# See \c ::turtles::hatch_the_turtles for the set of valid options. Note that the
+# -enabled boolean flag must be passed with the TURTLES options in order for the
+# trace handlers to be injected. The system is disabled by default.
+#
+# \param[in,out] _argv a name reference to an argv string
+proc ::turtles::release_the_turtles {_argv} {
+	upvar $_argv {argv'}
 	# Initialize an empty list of procs being traced.
 	set ::turtles::tracedProcs [list]
 
 	# Determine whether or not to enable trace logging.
-	set enabled [::turtles::hatch_the_turtles commitMode intervalMillis dbPath dbPrefix mode]
+	set params [::turtles::hatch_the_turtles {argv'}]
 
 	# Set up dummy procs so that ::turtles::capture_the_turtles doesn't throw an error.
-	if { !$enabled } {
+	if { ![dict get $params enabled] } {
 		namespace eval ::turtles::persistence {
 			proc stop {} { return }
 			namespace export *
 		}
-		return
+		return $params
 	}
 
 	# Initialize the ghost namespace based on the given or implicit mode parameter.
 	namespace eval ::turtles::persistence {
-		namespace import ::turtles::persistence::[uplevel { subst {$mode} }]::*
+		namespace import ::turtles::persistence::[uplevel { subst {[dict get $params scheduleMode]} }]::*
 		namespace export *
 	}
 
@@ -232,9 +347,9 @@ proc ::turtles::release_the_turtles {{commitMode staged} {intervalMillis 30000} 
 			# If the current process is a spawned child...
 			if { \$result == 0 } {
 				# Copy the DB at the parent's path to the child's path.
-				::turtles::persistence::base::copy_db_from_fork_parent $dbPath $dbPrefix
+				::turtles::persistence::base::copy_db_from_fork_parent [dict get $params dbPath] [dict get $params dbPrefix]
 			}
-			::turtles::persistence::start $commitMode $intervalMillis $dbPath $dbPrefix
+			::turtles::persistence::start [dict get $params commitMode] [dict get $params intervalMillis] [dict get $params dbPath] [dict get $params dbPrefix]
 		}
 	}]
 
@@ -244,7 +359,7 @@ proc ::turtles::release_the_turtles {{commitMode staged} {intervalMillis 30000} 
 
 
 	# Start the persistence mechanism now so it's ready once the hooks are added. Sinks before sources!
-	::turtles::persistence::start $commitMode $intervalMillis $dbPath $dbPrefix
+	::turtles::persistence::start [dict get $params commitMode] [dict get $params intervalMillis] [dict get $params dbPath] [dict get $params dbPrefix]
 
 	# Bootstrap the proc IDs for the ::turtles namespace and its children
 	# so that the standard views make sense.
@@ -261,6 +376,7 @@ proc ::turtles::release_the_turtles {{commitMode staged} {intervalMillis 30000} 
 
 	# Add a trigger for the proc command to add a handler for the newly defined proc.
 	trace add execution {proc} [list leave] ::turtles::on_proc_define_add_trace
+	return $params
 }
 
 ## User-level convenience function for ending automatic \c proc instrumentation

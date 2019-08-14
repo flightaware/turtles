@@ -10,27 +10,24 @@ namespace eval ::turtles::test::integration::mt {
 	namespace export *
 }
 
-proc ::turtles::test::integration::mt::with_turtles {constraints title {commitMode staged} {intervalMillis 50} testBody {postMortemBody { return }} {dbPath {./}} {dbPrefix {turtles}}} {
-	global ::argv
-	global ::oldargv
-	::tcltest::test with_turtles [subst {with_turtles "$title" $commitMode $intervalMillis}] \
+proc ::turtles::test::integration::mt::with_turtles {constraints title testBody {postMortemBody { return }} {targv {}}} {
+	set targv "+TURTLES $targv -enabled -scheduleMode mt -TURTLES"
+	::tcltest::test with_turtles [subst {with_turtles "$title \{$targv\}"}] \
 		-constraints $constraints \
 		-setup {
-			set ::oldargv $::argv
-			set ::argv "+TURTLES -enabled -TURTLES"
-			::turtles::release_the_turtles $commitMode $intervalMillis $dbPath $dbPrefix
+			global ::turtles::params
+			set ::turtles::params [::turtles::release_the_turtles targv]
 			if { ![ thread::exists $::turtles::persistence::mt::recorder ] } {
 				error "Persistence mechanism is not running!"
 			}
 		} -body $testBody \
 		-cleanup {
-			::turtles::test::integration::postmortem::test_cleanup $postMortemBody $dbPath $dbPrefix
-			set ::argv $::oldargv
+			global ::turtles::params
+			::turtles::test::integration::postmortem::test_cleanup $postMortemBody [dict get $::turtles::params dbPath] [dict get $::turtles::params dbPrefix]
 			if { [ thread::exists $::turtles::persistence::mt::recorder ] } {
 				error "Persistence mechanism is still running!"
 			}
 		} -result 1
-
 }
 
 proc ::turtles::test::integration::mt::test_caller_callee_count {stage caller callee expected} {
@@ -61,19 +58,17 @@ namespace eval ::turtles::test::integration::ev {
 	namespace export *
 }
 
-proc ::turtles::test::integration::ev::with_turtles {constraints title {commitMode staged} {intervalMillis 50} testBody {postMortemBody { return }} {dbPath {./}} {dbPrefix {turtles}}} {
-	global ::argv
-	global ::oldargv
-	::tcltest::test with_turtles [subst {with_turtles "$title" $commitMode $intervalMillis}] \
+proc ::turtles::test::integration::ev::with_turtles {constraints title testBody {postMortemBody { return }} {targv {}}} {
+	set targv "+TURTLES $targv -enabled -scheduleMode ev -TURTLES"
+	::tcltest::test with_turtles [subst {with_turtles "$title \{$targv\}"}] \
 		-constraints $constraints \
 		-setup {
-			set ::oldargv $::argv
-			set ::argv "+TURTLES -enabled -TURTLES"
-			::turtles::release_the_turtles $commitMode $intervalMillis $dbPath $dbPrefix ev
+			global ::turtles::params
+			set ::turtles::params [::turtles::release_the_turtles targv]
 		} -body $testBody \
      	-cleanup {
-			::turtles::test::integration::postmortem::test_cleanup $postMortemBody $dbPath $dbPrefix
-			set ::argv $::oldargv
+			global ::turtles::params
+			::turtles::test::integration::postmortem::test_cleanup $postMortemBody [dict get $::turtles::params dbPath] [dict get $::turtles::params dbPrefix]
 		} -result 1
 }
 
