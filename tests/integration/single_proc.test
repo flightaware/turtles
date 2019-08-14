@@ -19,7 +19,7 @@ set noop_staged_test {
 set noop_direct_test {
 	proc ::noop {} { return }
 	noop
-	test_caller_callee_count stage0 {} {::noop} 1
+	test_caller_callee_count main {} {::noop} 1
 	return 1
 }
 

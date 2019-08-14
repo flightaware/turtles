@@ -35,8 +35,8 @@ proc ::turtles::test::integration::mt::with_turtles {constraints title {commitMo
 
 proc ::turtles::test::integration::mt::test_caller_callee_count {stage caller callee expected} {
 	thread::send $::turtles::persistence::mt::recorder [subst {
-		return \[::turtles::persistence::mt::$stage eval {
-			SELECT SUM(calls) FROM calls_by_caller_callee WHERE caller_name = '$caller' AND callee_name = '$callee';
+		return \[::turtles::persistence::mt::stages eval {
+			SELECT SUM(calls) FROM $stage.calls_by_caller_callee WHERE caller_name = '$caller' AND callee_name = '$callee';
 		}\]
 	}] actual
 	if { $expected != $actual } {
@@ -78,8 +78,8 @@ proc ::turtles::test::integration::ev::with_turtles {constraints title {commitMo
 }
 
 proc ::turtles::test::integration::ev::test_caller_callee_count {stage caller callee expected} {
-	::turtles::persistence::ev::$stage eval [subst {
-		SELECT SUM(calls) AS totalCalls FROM calls_by_caller_callee WHERE caller_name = '$caller' AND callee_name = '$callee';
+	::turtles::persistence::ev::stages eval [subst {
+		SELECT SUM(calls) AS totalCalls FROM $stage.calls_by_caller_callee WHERE caller_name = '$caller' AND callee_name = '$callee';
 	}] values {
 		set actual $values(totalCalls)
 	}

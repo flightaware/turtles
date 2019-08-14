@@ -36,10 +36,10 @@ with_persistence_test staged 50 {
 	vwait ::await_update
 	# Quadruple the purported finalize interval for engineering slop.
 	# There may be a lower bound on the Tcl event loop in terms of resolution.
-	after 200
+	after 500
 	thread::send $::turtles::persistence::mt::recorder {
-		return [::turtles::persistence::mt::stage1 eval {
-			SELECT calls FROM calls_by_caller_callee WHERE caller_name = '' AND callee_name = '::one';
+		return [::turtles::persistence::mt::stages eval {
+			SELECT calls FROM stage1.calls_by_caller_callee WHERE caller_name = '' AND callee_name = '::one';
 		}]
 	} result
 	return $result
@@ -52,7 +52,7 @@ with_persistence_test direct 50 {
 	turtles::persistence::mt::update_call 0 1 0 [clock microseconds]
 	# No delay required. Direct write hits the final DB directly.
 	thread::send $::turtles::persistence::mt::recorder {
-		return [::turtles::persistence::mt::stage0 eval {
+		return [::turtles::persistence::mt::stages eval {
 			SELECT calls FROM calls_by_caller_callee WHERE caller_name = '' AND callee_name = '::one';
 		}]
 	} result

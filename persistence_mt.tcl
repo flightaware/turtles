@@ -9,9 +9,8 @@ package require turtles::persistence::base 0.1
 namespace eval ::turtles::persistence::mt {
 	variable recorder
 	variable scheduler
-	variable stage0
-	variable stage1
-	namespace export start stop add_proc_id add_call update_call recorder scheduler stage0 stage1
+	variable stages
+	namespace export start stop add_proc_id add_call update_call recorder scheduler stages
 }
 
 ## \file persistence.tcl
@@ -69,7 +68,7 @@ namespace eval ::turtles::persistence::mt {
 # \param[in] procName proc name
 # \param[in] timeDefined the epoch time in microseconds at which the proc definition was invoked
 proc ::turtles::persistence::mt::add_proc_id {procId procName timeDefined {awaiter {}}} {
-	set lambda [::turtles::persistence::base::add_proc_id [namespace current]::stage0 $procId $procName $timeDefined]
+	set lambda [::turtles::persistence::base::add_proc_id [namespace current]::stages $procId $procName $timeDefined]
 	thread::send -async $::turtles::persistence::mt::recorder $lambda $awaiter
 }
 
@@ -80,7 +79,7 @@ proc ::turtles::persistence::mt::add_proc_id {procId procName timeDefined {await
 # \param[in] traceId identifier disambiguating calls on the same caller-callee edge in the call graph
 # \param[in] timeEnter the epoch time in microseconds at which the proc entry handler was triggered
 proc ::turtles::persistence::mt::add_call {callerId calleeId traceId timeEnter {awaiter {}}} {
-	set lambda [::turtles::persistence::base::add_call [namespace current]::stage0 $callerId $calleeId $traceId $timeEnter]
+	set lambda [::turtles::persistence::base::add_call [namespace current]::stages $callerId $calleeId $traceId $timeEnter]
 	thread::send -async $::turtles::persistence::mt::recorder $lambda $awaiter
 }
 
@@ -91,7 +90,7 @@ proc ::turtles::persistence::mt::add_call {callerId calleeId traceId timeEnter {
 # \param[in] traceId identifier disambiguating calls on the same caller-callee edge in the call graph
 # \param[in] timeLeave the epoch time in microseconds at which the proc exit handler was triggered
 proc ::turtles::persistence::mt::update_call {callerId calleeId traceId timeLeave {awaiter {}}} {
-	set lambda [::turtles::persistence::base::update_call [namespace current]::stage0 $callerId $calleeId $traceId $timeLeave]
+	set lambda [::turtles::persistence::base::update_call [namespace current]::stages $callerId $calleeId $traceId $timeLeave]
 	thread::send -async $::turtles::persistence::mt::recorder $lambda $awaiter
 }
 
@@ -112,8 +111,7 @@ proc ::turtles::persistence::mt::start {{commitMode staged} {intervalMillis 3000
 				package require Thread
 				package require sqlite3
 				package require turtles::persistence::mt
-				::turtles::persistence::base::init_stage [namespace current]::stage0
-				::turtles::persistence::base::init_stage [namespace current]::stage1 $fqdb
+				::turtles::persistence::base::init_stages [namespace current]::stages $commitMode $fqdb
 				thread::wait
 			}]]
 			set ::turtles::persistence::mt::scheduler [thread::create [subst {
@@ -122,7 +120,7 @@ proc ::turtles::persistence::mt::start {{commitMode staged} {intervalMillis 3000
 				package require turtles::persistence::mt
 				# Pass recorder thread ID to scheduler.
 				global [namespace current]::nextFinalizeCall
-				::turtles::persistence::mt::start_finalizer [namespace current]::nextFinalizeCall $::turtles::persistence::mt::recorder [namespace current]::stage0 [namespace current]::stage1 $intervalMillis
+				::turtles::persistence::mt::start_finalizer [namespace current]::nextFinalizeCall $::turtles::persistence::mt::recorder [namespace current]::stages $intervalMillis
 				vwait ::turtles::persistence::mt::scheduler_off
 			}]]
 		}
@@ -132,7 +130,7 @@ proc ::turtles::persistence::mt::start {{commitMode staged} {intervalMillis 3000
 				package require Thread
 				package require sqlite3
 				package require turtles::persistence::mt
-				::turtles::persistence::base::init_stage [namespace current]::stage0 $fqdb
+				::turtles::persistence::base::init_stages [namespace current]::stages $commitMode $fqdb
 				thread::wait
 			}]]
 		}
@@ -165,7 +163,7 @@ proc ::turtles::persistence::mt::stop {} {
 
 	# Stop recorder worker thread.
 	if { [info exists ::turtles::persistence::mt::recorder] && [thread::exists $::turtles::persistence::mt::recorder] } {
-		set lambda { ::turtles::persistence::base::stop_recorder [namespace current]::stage0 [namespace current]::stage1 }
+		set lambda { ::turtles::persistence::base::stop_recorder [namespace current]::stages }
 		thread::send $::turtles::persistence::mt::recorder $lambda
 		thread::release $::turtles::persistence::mt::recorder
 		thread::join $::turtles::persistence::mt::recorder
@@ -176,12 +174,11 @@ proc ::turtles::persistence::mt::stop {} {
 # transfer new trace information from stage 0 to stage 1.
 #
 # \param recorderThread the thread ID of the recorder thread
-# \param stage0 the stage 0 command (i.e., sqlite DB) for ephemeral storage
-# \param stage1 the stage 1 command (i.e., sqlite DB) for finalized storage
+# \param stages the command (i.e., sqlite DB) for ephemeral and attached finalized storage
 # \param intervalMillis the interval in ms between finalize notifications
-proc ::turtles::persistence::mt::start_finalizer {nextRef recorderThread stage0 stage1 intervalMillis} {
+proc ::turtles::persistence::mt::start_finalizer {nextRef recorderThread stages intervalMillis} {
 	upvar $nextRef next
-	set next [after $intervalMillis ::turtles::persistence::mt::schedule_finalize next $recorderThread $stage0 $stage1 $intervalMillis ]
+	set next [after $intervalMillis ::turtles::persistence::mt::schedule_finalize next $recorderThread $stages $intervalMillis ]
 }
 
 
@@ -192,13 +189,13 @@ proc ::turtles::persistence::mt::start_finalizer {nextRef recorderThread stage0 
 # NB: This function should only be executed directly in the scheduler thread.
 #
 # \param[in] intervalMillis the number of milliseconds between operations
-proc ::turtles::persistence::mt::schedule_finalize {nextRef recorderThread stage0 stage1 intervalMillis} {
+proc ::turtles::persistence::mt::schedule_finalize {nextRef recorderThread stages intervalMillis} {
 	if { [thread::exists $recorderThread] } {
 		upvar $nextRef next
 		#Finalize the next batch of uncommitted records.
-		thread::send $recorderThread [subst { ::turtles::persistence::base::finalize $stage0 $stage1 }]
+		thread::send $recorderThread [subst { ::turtles::persistence::base::finalize $stages }]
 		#Set an alarm to wake up and do it again.
-		set next [after $intervalMillis ::turtles::persistence::mt::schedule_finalize next $recorderThread $stage0 $stage1 $intervalMillis]
+		set next [after $intervalMillis ::turtles::persistence::mt::schedule_finalize next $recorderThread $stages $intervalMillis]
 	} else {
 		error "No active recorder thread!"
 	}

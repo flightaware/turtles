@@ -34,9 +34,9 @@ set ab_direct_test {
 
 	b
 	a
-	test_caller_callee_count {stage0} {} {::b} 1
-	test_caller_callee_count {stage0} {} {::a} 1
-	test_caller_callee_count {stage0} {::a} {::b} 1
+	test_caller_callee_count {main} {} {::b} 1
+	test_caller_callee_count {main} {} {::a} 1
+	test_caller_callee_count {main} {::a} {::b} 1
 	return 1
 }
 

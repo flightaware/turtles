@@ -24,8 +24,8 @@ proc with_turtles {title {commitMode staged} {intervalMillis 50} testBody} {
 
 proc test_caller_callee_count {stage caller callee expected} {
 	thread::send $::turtles::persistence::mt::recorder [subst {
-		return \[::turtles::persistence::mt::$stage eval {
-			SELECT SUM(calls) FROM calls_by_caller_callee WHERE caller_name = '$caller' AND callee_name = '$callee';
+		return \[::turtles::persistence::mt::stages eval {
+			SELECT SUM(calls) FROM $stage.calls_by_caller_callee WHERE caller_name = '$caller' AND callee_name = '$callee';
 		}\]
 	}] actual
 	if { $expected != $actual } {
