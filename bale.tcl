@@ -53,7 +53,12 @@ proc ::turtles::bale::find_connected_procs {db {k 1} {callThreshold 0}} {
 	}
 	::turtles::kmm::scatterv {add_call} $msgv
 	# Phase 0: Signal to k-machine model threads to prepare for MST phases.
-	# Copy neighbors collection to active edges and sort by call count in descending order.
+	# Copy neighbors collection to outer edges and sort by call count in descending order.
+	set msgv [dict create]
+	for {set i 0} {$i < $k} {incr i} {
+		dict set msgv $i 0
+	}
+	::turtles::kmm::scatterv {phase_init}
 	# While MST forest is incomplete...
 	#   Signal to k-machine model threads to kick off "Find MOE" phase.
 	#   Phase 1: Find MOE. Wait for forest to be traversed.
@@ -78,24 +83,40 @@ proc ::turtles::bale::init {} {
 proc ::turtles::bale::recv {cmd cmdArgs} {
 	switch $cmd {
 		# Generic phase commands
-		phase_init { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::phase_init ::turtles::bale::machineState $cmdArgs ] }
-		phase_done { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::phase1_done ::turtles::bale::machineState $cmdArgs ] }
+		phase_init  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::phase_init ::turtles::bale::machineState $cmdArgs ] }
+		phase_done  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::phase1_done ::turtles::bale::machineState $cmdArgs ] }
+
+		# Data-loading commands
+		add_proc    { ::turtles::bale::handle::add_proc ::turtles::bale::machineState $cmdArgs }
+		add_call    { ::turtles::bale::handle::add_call ::turtles::bale::machineState $cmdArgs }
+
+		# Phase 0 commands
+		prepare     { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::prepare  ::turtles::bale::machineState $cmdArgs ] }
 
 		# Phase 1 commands
-		add_proc   { ::turtles::bale::handle::add_proc ::turtles::bale::machineState $cmdArgs }
-		add_call   { ::turtles::bale::handle::add_call ::turtles::bale::machineState $cmdArgs }
-		find_moe   { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::find_moe  ::turtles::bale::machineState $cmdArgs ] }
-		test_moe   { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::test_moe  ::turtles::bale::machineState $cmdArgs ] }
-		req_root   { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::req_root  ::turtles::bale::machineState $cmdArgs ] }
-		rsp_root   { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::rsp_root  ::turtles::bale::machineState $cmdArgs ] }
-		found_moe  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::found_moe ::turtles::bale::machineState $cmdArgs ] }
+		find_moe    { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::find_moe  ::turtles::bale::machineState $cmdArgs ] }
+		test_moe    { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::test_moe  ::turtles::bale::machineState $cmdArgs ] }
+		req_root    { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::req_root  ::turtles::bale::machineState $cmdArgs ] }
+		rsp_root    { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::rsp_root  ::turtles::bale::machineState $cmdArgs ] }
+		found_moe   { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::found_moe ::turtles::bale::machineState $cmdArgs ] }
+		notify_moe  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::notify_moe ::turtles::bale::machineState $cmdArgs ] }
+
+		# Phase 2 commands
+		merge       { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::merge ::turtles::bale::machineState $cmdArgs ] }
+		req_combine { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::req_combine ::turtles::bale::machineState $cmdArgs ] }
+		new_root    { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::new_root ::turtles::bale::machineState $cmdArgs ] }
 
 		# Phase 3 commands
-		req_active { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::req_active ::turtles::bale::machineState $cmdArgs ] }
-		rsp_active { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::rsp_active ::turtles::bale::machineState $cmdArgs ] }
+		req_active  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::req_active ::turtles::bale::machineState $cmdArgs ] }
+		rsp_active  { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::rsp_active ::turtles::bale::machineState $cmdArgs ] }
+
+		# Phase 4 commands
+		# @TODO: Actually do something useful in aggregating the clusters. Like write records to a sqlite DB.
+		summarize   { ::turtles::bale::dict_scatterv [ ::turtles::bale::handle::rsp_active ::turtles::bale::machineState $cmdArgs ] }
+
 		# Miscellaneous
-		put_state { puts stderr $::turtles::bale::machineState }
-		default   { ::turtles::bale::handle::invalid_cmd $cmd $cmdArgs }
+		put_state   { puts stderr $::turtles::bale::machineState }
+		default     { ::turtles::bale::handle::invalid_cmd $cmd $cmdArgs }
 	}
 }
 
