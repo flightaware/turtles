@@ -370,7 +370,10 @@ proc ::turtles::release_the_turtles {_argv} {
 	foreach procName [ concat \
 						   [info procs ::turtles::*] \
 						   [info procs ::turtles::hashing::*] \
-						   [info procs ::turtles::persistence::*] ] {
+						   [info procs ::turtles::options::*] \
+						   [info procs ::turtles::persistence::base::*] \
+						   [info procs ::turtles::persistence::mt::*] \
+						   [info procs ::turtles::persistence::ev::*] ] {
 		# Calculate the proc ID hash and set the time defined.
 		set procId [::turtles::hashing::hash_string $procName]
 		set timeDefined [clock microseconds]

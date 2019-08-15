@@ -2,7 +2,6 @@
 
 package require Tcl 8.5 8.6
 package require Tclx
-package require turtles::hashing
 
 ## \file persistence_base.tcl
 # Provides functions and lambda bodies common to both MT and event-loop versions
@@ -145,11 +144,15 @@ proc ::turtles::persistence::base::finalize {dbcmd} {
 		$dbcmd eval {
 			INSERT INTO stage1.call_pts
 			SELECT caller_id, callee_id, trace_id, time_enter, time_leave FROM main.call_pts
-			WHERE time_leave IS NOT NULL AND time_leave > $lastFinalizeTime
+			WHERE time_leave IS NOT NULL AND time_leave < $time0
 			ON CONFLICT DO NOTHING;
 		}
+		# Drop finalized records from in-memory db. YAGNI.
+		$dbcmd eval {
+			DELETE FROM main.call_pts
+			WHERE time_leave IS NOT NULL AND time_leave < $time0;
+		}
 	}
-	::turtles::persistence::base::add_call 0 [::turtles::hashing::hash_string ::turtles::persistence::base::finalize] 0 $time0 [clock microseconds]
 }
 
 proc ::turtles::persistence::base::commit_mode_is_staged {dbcmd} {
