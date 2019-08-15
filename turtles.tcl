@@ -135,6 +135,7 @@ namespace eval ::turtles {
 		{dbPrefix.arg {turtles} "Final DB name prefix"}
 		{scheduleMode.arg mt "Finalizer scheduling mode (multi-threaded \[mt\] | event-loop \[ev\])"}
 	}
+
 	namespace export release_the_turtles capture_the_turtles options
 }
 
@@ -145,6 +146,7 @@ namespace eval ::turtles {
 # \param[in] commandString the command string to be executed
 # \param[in] op the operation (in this case, \c enter).
 proc ::turtles::on_proc_enter {commandString op} {
+	set time0 [clock microseconds]
 	# Retrieve the frame two levels down the call stack to avoid
 	# confusing with the stack frame for ::turtles::on_proc_enter.
 	set execFrame [info frame -2]
@@ -177,6 +179,7 @@ proc ::turtles::on_proc_enter {commandString op} {
 		puts stderr "\[$timeEnter:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
 	}
 	::turtles::persistence::add_call $callerId $calleeId $traceId $timeEnter
+	::turtles::persistence::add_call 0 [::turtles::hashing::hash_string ::turtles::on_proc_enter] $traceId $time0 [clock microseconds]
 }
 
 ## Handler for proc exit.
@@ -218,6 +221,7 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 		puts stderr "\[$timeLeave:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
 	}
 	::turtles::persistence::update_call $callerId $calleeId $traceId $timeLeave
+	::turtles::persistence::add_call 0 [::turtles::hashing::hash_string ::turtles::on_proc_leave] $traceId $timeLeave [clock microseconds]
 }
 
 ## Handler for injecting entry and exit handlers.

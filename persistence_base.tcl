@@ -2,6 +2,7 @@
 
 package require Tcl 8.5 8.6
 package require Tclx
+package require turtles::hashing
 
 ## \file persistence_base.tcl
 # Provides functions and lambda bodies common to both MT and event-loop versions
@@ -10,6 +11,7 @@ package require Tclx
 ## Namespace for common persistence lambda bodies.
 namespace eval ::turtles::persistence::base {
 	variable nextFinalizeCall
+
 	namespace export \
 		get_db_filename \
 		script add_proc_id add_call update_call \
@@ -44,12 +46,12 @@ proc ::turtles::persistence::base::add_proc_id {dbcmd procId procName timeDefine
 	}]
 }
 
-proc ::turtles::persistence::base::add_call {dbcmd callerId calleeId traceId timeEnter} {
+proc ::turtles::persistence::base::add_call {dbcmd callerId calleeId traceId timeEnter {timeLeave {NULL}}} {
 	return [subst {
 		if { \[info comm $dbcmd\] ne {} } {
 			$dbcmd eval {
-				INSERT INTO main.call_pts (caller_id, callee_id, trace_id, time_enter)
-				VALUES($callerId, $calleeId, $traceId, $timeEnter);
+				INSERT INTO main.call_pts (caller_id, callee_id, trace_id, time_enter, time_leave)
+				VALUES($callerId, $calleeId, $traceId, $timeEnter, $timeLeave);
 			}
 		}
 	}]
@@ -119,12 +121,11 @@ proc ::turtles::persistence::base::init_views {dbcmd {stage {main}}} {
 	}]
 }
 
-
-
 ## Transfers trace information from the ephemeral to the finalized DB.
 #
 # NB: This function should only be executed directly in the recorder thread.
 proc ::turtles::persistence::base::finalize {dbcmd} {
+	set time0 [clock microseconds]
 	# Only proceed if the databases exist.
 	if { [::turtles::persistence::base::commit_mode_is_staged $dbcmd] } {
 		# Retrieve last finalize time recorded to stage 1.
@@ -148,6 +149,7 @@ proc ::turtles::persistence::base::finalize {dbcmd} {
 			ON CONFLICT DO NOTHING;
 		}
 	}
+	::turtles::persistence::base::add_call 0 [::turtles::hashing::hash_string ::turtles::persistence::base::finalize] 0 $time0 [clock microseconds]
 }
 
 proc ::turtles::persistence::base::commit_mode_is_staged {dbcmd} {
