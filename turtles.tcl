@@ -178,8 +178,8 @@ proc ::turtles::on_proc_enter {commandString op} {
 	if { [info exists ::turtles::debug] } {
 		puts stderr "\[$timeEnter:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
 	}
-	::turtles::persistence::add_call $callerId $calleeId $traceId $timeEnter
-	::turtles::persistence::add_call 0 [::turtles::hashing::hash_string ::turtles::on_proc_enter] $traceId $time0 [clock microseconds]
+	catch { ::turtles::persistence::add_call $callerId $calleeId $traceId $timeEnter }
+	catch { ::turtles::persistence::add_call 0 [::turtles::hashing::hash_string ::turtles::on_proc_enter] $traceId $time0 [clock microseconds] }
 }
 
 ## Handler for proc exit.
@@ -220,8 +220,8 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 	if { [info exists ::turtles::debug] } {
 		puts stderr "\[$timeLeave:$op:$traceId\] $callerName ($callerId) -> $calleeName ($calleeId) \{$rawCalleeName\}"
 	}
-	::turtles::persistence::update_call $callerId $calleeId $traceId $timeLeave
-	::turtles::persistence::add_call 0 [::turtles::hashing::hash_string ::turtles::on_proc_leave] $traceId $timeLeave [clock microseconds]
+	catch { ::turtles::persistence::update_call $callerId $calleeId $traceId $timeLeave }
+	catch { ::turtles::persistence::add_call 0 [::turtles::hashing::hash_string ::turtles::on_proc_leave] $traceId $timeLeave [clock microseconds] }
 }
 
 ## Handler for injecting entry and exit handlers.
@@ -397,8 +397,10 @@ proc ::turtles::capture_the_turtles {} {
 	trace remove execution {fork} [list leave] ::turtles::post_fork
 
 	foreach handledProc $::turtles::tracedProcs {
-		trace remove execution $handledProc [list enter] ::turtles::on_proc_enter
-		trace remove execution $handledProc [list leave] ::turtles::on_proc_leave
+		if { [info procs $handledProc] ne {} } {
+			trace remove execution $handledProc [list enter] ::turtles::on_proc_enter
+			trace remove execution $handledProc [list leave] ::turtles::on_proc_leave
+		}
 	}
 	# Undefine the list of traced procs.
 	unset ::turtles::tracedProcs

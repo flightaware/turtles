@@ -2,6 +2,7 @@
 
 package require Tcl 8.5 8.6
 package require Tclx
+package require turtles::hashing           0.1
 
 ## \file persistence_base.tcl
 # Provides functions and lambda bodies common to both MT and event-loop versions
@@ -10,7 +11,6 @@ package require Tclx
 ## Namespace for common persistence lambda bodies.
 namespace eval ::turtles::persistence::base {
 	variable nextFinalizeCall
-
 	namespace export \
 		get_db_filename \
 		script add_proc_id add_call update_call \
@@ -59,6 +59,7 @@ proc ::turtles::persistence::base::add_call {dbcmd callerId calleeId traceId tim
 proc ::turtles::persistence::base::update_call {dbcmd callerId calleeId traceId timeLeave} {
 	return [subst {
 		if { \[info comm $dbcmd\] ne {} } {
+
 			$dbcmd eval {
 				UPDATE main.call_pts SET time_leave = $timeLeave
 				WHERE caller_id = $callerId AND callee_id = $calleeId AND trace_id = $traceId AND time_leave IS NULL;
@@ -152,6 +153,10 @@ proc ::turtles::persistence::base::finalize {dbcmd} {
 			DELETE FROM main.call_pts
 			WHERE time_leave IS NOT NULL AND time_leave < $time0;
 		}
+		set script [::turtles::persistence::base::add_call $dbcmd 0 [::turtles::hashing::hash_string ::turtles::persistence::base::finalize] $time0 $time0 [clock microseconds]]
+		if {[catch { eval $script } err] != 0 } {
+			puts stderr $err
+		}
 	}
 }
 
@@ -186,7 +191,6 @@ proc ::turtles::persistence::base::init_stages {dbcmd commitMode finalStageName}
 	switch $commitMode {
 		staged {
 			sqlite3 $dbcmd {:memory:}
-			#$dbcmd eval [subst { ATTACH DATABASE '$finalStageName' AS stage1; }]
 			$dbcmd eval { ATTACH DATABASE $finalStageName AS stage1; }
 			::turtles::persistence::base::init_proc_id_table $dbcmd stage1
 			::turtles::persistence::base::init_call_pt_table $dbcmd stage1
@@ -206,7 +210,7 @@ proc ::turtles::persistence::base::init_stages {dbcmd commitMode finalStageName}
 # Under the hood, this closes the associated sqlite DB.
 # The associated command will no longer be available after this completes.
 #
-# \param[in] dbcmd the command (i.e., sqlite DB) for 
+# \param[in] dbcmd the command (i.e., sqlite DB) for
 proc ::turtles::persistence::base::close_stages {dbcmd} {
 	if { [info comm $dbcmd] ne {} } {
 		if { [ ::turtles::persistence::base::commit_mode_is_staged $dbcmd ] } {
@@ -240,6 +244,7 @@ proc ::turtles::persistence::base::stop_finalizer {nextRef} {
 # NB: This should not be invoked while trace handlers which could modify
 # the stage databases are active.
 proc ::turtles::persistence::base::stop_recorder {dbcmd} {
+	update
 	# Do a last finalize to pick up any missing trace information.
 	::turtles::persistence::base::finalize $dbcmd
 	::turtles::persistence::base::close_stages $dbcmd
