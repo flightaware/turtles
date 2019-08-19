@@ -161,8 +161,7 @@ proc ::turtles::on_proc_enter {commandString op} {
 	# Avoid unnecessary recursive descent.
 	if { [ regexp {^::turtles::} $callerName ] } { return }
 	# Callee needs to be fully qualified for consistency.
-	set calleeCmd [dict get $execFrame cmd]
-	regsub {^([{][*][}])?(\S+)\s+.*$} $calleeCmd {\2} rawCalleeName
+	lassign $commandString rawCalleeName
 	set calleeName [uplevel namespace origin $rawCalleeName]
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
@@ -206,8 +205,7 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 	# Avoid unnecessary recursive descent.
 	if { [ regexp {^::turtles::} $callerName ] } { return }
 	# Callee needs to be fully qualified for consistency.
-	set calleeCmd [dict get $execFrame cmd]
-	regsub {^([{][*][}])?(\S+)\s+.*$} $calleeCmd {\2} rawCalleeName
+	lassign $commandString rawCalleeName
 	set calleeName [uplevel namespace origin $rawCalleeName]
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
