@@ -134,6 +134,7 @@ namespace eval ::turtles {
 		{dbPath.arg {./} "Final DB directory path"}
 		{dbPrefix.arg {turtles} "Final DB name prefix"}
 		{scheduleMode.arg mt "Finalizer scheduling mode (multi-threaded \[mt\] | event-loop \[ev\])"}
+		{debug "Print debug information to stderr"}
 	}
 
 	namespace export release_the_turtles capture_the_turtles options
@@ -327,6 +328,10 @@ proc ::turtles::release_the_turtles {_argv} {
 	# Determine whether or not to enable trace logging.
 	set params [::turtles::hatch_the_turtles {argv'}]
 
+	# Turn debugging output to stderr on if requested.
+	if { [dict get $params debug] } {
+		set ::turtles::debug 1
+	}
 	# Set up dummy procs so that ::turtles::capture_the_turtles doesn't throw an error.
 	if { ![dict get $params enabled] } {
 		namespace eval ::turtles::persistence {
