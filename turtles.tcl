@@ -163,7 +163,7 @@ proc ::turtles::on_proc_enter {commandString op} {
 	# Callee needs to be fully qualified for consistency.
 	set calleeCmd [dict get $execFrame cmd]
 	regsub {^([{][*][}])?(\S+)\s+.*$} $calleeCmd {\2} rawCalleeName
-	set calleeName [uplevel namespace which -command [subst {\{$rawCalleeName\}}]]
+	set calleeName [uplevel namespace origin $rawCalleeName]
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
@@ -208,7 +208,7 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 	# Callee needs to be fully qualified for consistency.
 	set calleeCmd [dict get $execFrame cmd]
 	regsub {^([{][*][}])?(\S+)\s+.*$} $calleeCmd {\2} rawCalleeName
-	set calleeName [uplevel namespace which -command [subst {\{$rawCalleeName\}}]]
+	set calleeName [uplevel namespace origin $rawCalleeName]
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
@@ -238,17 +238,22 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 # \param[in] op the operation (in this case, \c leave).
 proc ::turtles::on_proc_define_add_trace {commandString code result op} {
 	# Proc name needs to be fully qualified for consistency.
-	set isProcDef [regsub {^proc\s+(([{][^\}]+[}])|([^{} ]+))\s+(([{][^\}]*[}])|([^{} ]+))\s+[{].*[}]\s*$} $commandString {\1} rawProcName]
+	set remainder [lassign $commandString _proc rawProcName rawProcArgs rawProcBody]
+	if [info exists ::turtles::debug] {
+		puts "on_proc_define_add_trace: rawProcName = $rawProcName"
+	}
 	# Proceed only if the command string is a proc def.
-	if { $isProcDef } {
+	if { $remainder eq {} && $_proc eq {proc} && $rawProcName ne {}} {
 		# Attempt name resolution.
-		set procName [uplevel namespace which -command $rawProcName]
+		set procName [uplevel namespace origin $rawProcName]
 		# Proceed only if we can resolve the proc name.
 		if { $procName ne {} } {
 			::turtles::add_proc_trace $procName
 			if [info exists ::turtles::debug] {
 				puts "on_proc_define_add_trace: $procName"
 			}
+		} else {
+			puts stderr "CANNOT RESOLVE COMMAND \{$rawProcName\}! ns = [namespace_current], ns' = [uplevel namespace current]"
 		}
 	}
 }
@@ -265,13 +270,18 @@ proc ::turtles::add_proc_trace {procName} {
 	set timeDefined [clock microseconds]
 	# Add the proc ID hash to the lookup table and the list of traced procs.
 	::turtles::persistence::add_proc_id $procId $procName $timeDefined
+
+	if { [info exists ::turtles::debug] } {
+		puts stderr "add_proc_trace: $procId $procName $timeDefined"
+	}
+
 	lappend ::turtles::tracedProcs $procName
 	# Add handler for proc entry.
-	if { [ catch { trace add execution $procName [list enter] ::turtles::on_proc_enter } err ] } {
+	if { [ catch { trace add execution $procName [list enter] ::turtles::on_proc_enter } err ] != 0 } {
 		puts stderr "Failed to add enter trace for '$procName' [info commands $procName] \{$commandString\}: $err"
 	} else {
 		# Add handler for proc exit iff the handler for entry was successfully installed.
-		if { [ catch { trace add execution $procName [list leave] ::turtles::on_proc_leave } err ] } {
+		if { [ catch { trace add execution $procName [list leave] ::turtles::on_proc_leave } err ] != 0 } {
 			puts stderr "Failed to add leave trace for '$procName' [info commands $procName] \{$commandString\}: $err"
 		}
 	}
