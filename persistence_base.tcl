@@ -140,16 +140,10 @@ proc ::turtles::persistence::base::finalize {dbcmd} {
 			SELECT proc_id, proc_name, time_defined FROM main.proc_ids
 			WHERE time_defined > $lastFinalizeTime
 			ON CONFLICT DO NOTHING;
-		}
-		# Copy _finalized_ call points from the last finalized to the present into the final DB.
-		$dbcmd eval {
 			INSERT INTO stage1.call_pts
 			SELECT caller_id, callee_id, trace_id, time_enter, time_leave FROM main.call_pts
 			WHERE time_leave IS NOT NULL AND time_leave < $time0
 			ON CONFLICT DO NOTHING;
-		}
-		# Drop finalized records from in-memory db. YAGNI.
-		$dbcmd eval {
 			DELETE FROM main.call_pts
 			WHERE time_leave IS NOT NULL AND time_leave < $time0;
 		}
