@@ -162,7 +162,7 @@ proc ::turtles::on_proc_enter {commandString op} {
 	if { [ regexp {^::turtles::} $callerName ] } { return }
 	# Callee needs to be fully qualified for consistency.
 	lassign $commandString rawCalleeName
-	set calleeName [uplevel namespace origin $rawCalleeName]
+	set calleeName [uplevel namespace origin [subst {\{$rawCalleeName\}}]]
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
@@ -206,7 +206,7 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 	if { [ regexp {^::turtles::} $callerName ] } { return }
 	# Callee needs to be fully qualified for consistency.
 	lassign $commandString rawCalleeName
-	set calleeName [uplevel namespace origin $rawCalleeName]
+	set calleeName [uplevel namespace origin [subst {\{$rawCalleeName\}}]]
 	# Get hashes on FQFNs for caller and callee.
 	set callerId [ ::turtles::hashing::hash_string $callerName ]
 	set calleeId [ ::turtles::hashing::hash_string $calleeName ]
@@ -243,7 +243,7 @@ proc ::turtles::on_proc_define_add_trace {commandString code result op} {
 	# Proceed only if the command string is a proc def.
 	if { $remainder eq {} && $_proc eq {proc} && $rawProcName ne {}} {
 		# Attempt name resolution.
-		set procName [uplevel namespace origin $rawProcName]
+		set procName [uplevel namespace origin [subst {\{$rawProcName\}}]]
 		# Proceed only if we can resolve the proc name.
 		if { $procName ne {} } {
 			::turtles::add_proc_trace $procName
