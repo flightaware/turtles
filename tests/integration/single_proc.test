@@ -7,36 +7,52 @@ package require turtles::test::integration::postmortem
 
 namespace import ::tcltest::*
 
-set noop_staged_test {
-	proc ::noop {} { return }
-	noop
-	after 500
-	update
-	test_caller_callee_count stage1 {} {::noop} 1
-	return 1
+proc staged_test {procName} {
+	return [subst {
+		proc {$procName} {} { return }
+		{$procName}
+		after 500
+		update
+		test_caller_callee_count stage1 {} {$procName} 1
+		return 1
+	}]
 }
 
-set noop_direct_test {
-	proc ::noop {} { return }
-	noop
-	test_caller_callee_count main {} {::noop} 1
-	return 1
+proc direct_test {procName} {
+	return [subst {
+		proc {$procName} {} { return }
+		{$procName}
+		test_caller_callee_count main {} {$procName} 1
+		return 1
+	}]
 }
 
-set post_mortem {
-	::turtles::test::integration::postmortem::test_caller_callee_counts [list {} {::noop} 1]
+proc post_mortem {procName} {
+	return [subst -nocommands {
+		::turtles::test::integration::postmortem::test_caller_callee_counts [list {} {$procName} 1]
+	}]
 }
+
+
+set silly {::tcl::clock::formatproc'%a %b %d %H\:%M\:%S %Z %Y'c}
+set noop {::noop}
 
 namespace import ::turtles::test::integration::mt::*
 
-with_turtles macOrUnix "Single proc trace (mt)" $noop_staged_test $post_mortem "-commitMode staged -intervalMillis 100"
-with_turtles macOrUnix "Single proc trace (mt)" $noop_direct_test $post_mortem "-commitMode direct -intervalMillis 100"
+with_turtles macOrUnix "Single proc trace (mt) $noop" [staged_test $noop] [post_mortem $noop] "-commitMode staged -intervalMillis 100"
+with_turtles macOrUnix "Single proc trace (mt) $noop" [direct_test $noop] [post_mortem $noop] "-commitMode direct -intervalMillis 100"
+
+with_turtles macOrUnix "Single proc trace (mt) $silly" [staged_test $silly] [post_mortem $silly] "-commitMode staged -intervalMillis 100"
+with_turtles macOrUnix "Single proc trace (mt) $silly" [direct_test $silly] [post_mortem $silly] "-commitMode direct -intervalMillis 100"
 
 namespace forget ::turtles::test::integration::mt::*
 namespace import ::turtles::test::integration::ev::*
 
-with_turtles macOrUnix "Single proc trace (ev)" $noop_staged_test $post_mortem "-commitMode staged -intervalMillis 100"
-with_turtles macOrUnix "Single proc trace (ev)" $noop_direct_test $post_mortem "-commitMode direct -intervalMillis 100"
+with_turtles macOrUnix "Single proc trace (ev)" [staged_test $noop] [post_mortem $noop] "-commitMode staged -intervalMillis 100"
+with_turtles macOrUnix "Single proc trace (ev)" [direct_test $noop] [post_mortem $noop] "-commitMode direct -intervalMillis 100"
+
+with_turtles macOrUnix "Single proc trace (ev)" [staged_test $silly] [post_mortem $silly] "-commitMode staged -intervalMillis 100"
+with_turtles macOrUnix "Single proc trace (ev)" [direct_test $silly] [post_mortem $silly] "-commitMode direct -intervalMillis 100"
 
 
 cleanupTests

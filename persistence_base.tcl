@@ -12,12 +12,19 @@ package require turtles::hashing           0.1
 namespace eval ::turtles::persistence::base {
 	variable nextFinalizeCall
 	namespace export \
-		get_db_filename \
+		get_db_filename safe_quote \
 		script add_proc_id add_call update_call \
 		init_proc_id_table init_call_pt_table init_views \
 		init_stage close_stage \
 		finalize nextFinalizeCall
 }
+
+proc ::turtles::persistence::base::safe_quote {unsafe} {
+	regsub -all {\\} $unsafe {\\\\} safeBS
+	regsub -all {'} $safeBS {''} safeSQ
+	return $safeSQ
+}
+
 
 proc ::turtles::persistence::base::get_db_filename {{dbPath {./}} {dbPrefix {turtles}} {myPid {}}} {
 	if { $myPid eq {} } {
@@ -34,12 +41,11 @@ proc ::turtles::persistence::base::copy_db_from_fork_parent {{dbPath {./}} {dbPr
 }
 
 proc ::turtles::persistence::base::add_proc_id {dbcmd procId procName timeDefined} {
-	regsub -all {\\} $procName {\\\\} procNameBS
-	regsub -all {'} $procName {''} procNameSQ
+	set safeProcName [::turtles::persistence::base::safe_quote $procName]
 	return [subst {
 		$dbcmd eval {
 			INSERT INTO main.proc_ids (proc_id, proc_name, time_defined)
-			VALUES($procId, '$procNameSQ', $timeDefined)
+			VALUES($procId, '$safeProcName', $timeDefined)
 			ON CONFLICT DO NOTHING;
 		}
 	}]

@@ -31,9 +31,11 @@ proc ::turtles::test::integration::mt::with_turtles {constraints title testBody 
 }
 
 proc ::turtles::test::integration::mt::test_caller_callee_count {stage caller callee expected} {
+	set safeCaller [::turtles::persistence::base::safe_quote $caller]
+	set safeCallee [::turtles::persistence::base::safe_quote $callee]
 	thread::send $::turtles::persistence::mt::recorder [subst {
 		return \[::turtles::persistence::mt::stages eval {
-			SELECT SUM(calls) FROM $stage.calls_by_caller_callee WHERE caller_name = '$caller' AND callee_name = '$callee';
+			SELECT SUM(calls) FROM $stage.calls_by_caller_callee WHERE caller_name = '$safeCaller' AND callee_name = '$safeCallee';
 		}\]
 	}] actual
 	if { $expected != $actual } {
@@ -73,8 +75,10 @@ proc ::turtles::test::integration::ev::with_turtles {constraints title testBody 
 }
 
 proc ::turtles::test::integration::ev::test_caller_callee_count {stage caller callee expected} {
+	set safeCaller [::turtles::persistence::base::safe_quote $caller]
+	set safeCallee [::turtles::persistence::base::safe_quote $callee]
 	::turtles::persistence::ev::stages eval [subst {
-		SELECT SUM(calls) AS totalCalls FROM $stage.calls_by_caller_callee WHERE caller_name = '$caller' AND callee_name = '$callee';
+		SELECT SUM(calls) AS totalCalls FROM $stage.calls_by_caller_callee WHERE caller_name = '$safeCaller' AND callee_name = '$safeCallee';
 	}] values {
 		set actual $values(totalCalls)
 	}
