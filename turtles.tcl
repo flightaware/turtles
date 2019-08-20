@@ -153,7 +153,8 @@ proc ::turtles::on_proc_enter {commandString op} {
 	set execFrame [info frame -2]
 	if { [dict exists $execFrame proc] } {
 		# Called from within procedure
-		set callerName [dict get $execFrame proc]
+		set rawCallerName [dict get $execFrame proc]
+		set callerName [uplevel namespace origin [subst {\{$rawCallerName\}}]]
 	} else {
 		# Called from top level
 		set callerName ""
@@ -197,7 +198,8 @@ proc ::turtles::on_proc_leave {commandString code result op} {
 	set execFrame [info frame -2]
 	if { [dict exists $execFrame proc] } {
 		# Called from within procedure
-		set callerName [dict get $execFrame proc]
+		set rawCallerName [dict get $execFrame proc]
+		set callerName [uplevel namespace origin [subst {\{$rawCallerName\}}]]
 	} else {
 		# Called from top level
 		set callerName ""
