@@ -1,0 +1,27 @@
+\documentclass{article}[letter,10pt]
+
+\title{Release the TURTLES\\
+  \large{A Pure Tcl Interface to Dynamic Proc Tracing}}
+\author{
+  Michael Yantosca\\
+  FlightAware \\
+  michael.yantosca@flightaware.com
+}
+  
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+  Proper dynamic program analysis requires solid collection of call frequency,
+  relationships, and timing. Typically, this is achieved with a suite of
+  language-centric tools, e.g., valgrind (C/C++), the GHC profiling subsystem
+  (Haskell). Tcl appears to lack similar tools or at least requires significant
+  language extensions to meet this need. Consequently, this work introduces
+  the Tcl Universal Recursive Trace Log Execution Scrutinizer (TURTLES), a
+  simple proc tracing interface that yields easily aggregated and analyzed
+  call records. By adhering to pure Tcl, the endeavor provides an enlightening
+  étude in the pain points of developing such tooling in the language.
+\end{abstract}
+
+\end{document}
