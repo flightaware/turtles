@@ -99,7 +99,8 @@ in both HTML and PDF format. This documentation will be placed in the path
 TURTLES is designed to add trace handlers to procs as they are defined by
 the `proc` command. As such, it is recommended that users of the library
 include the `turtles` package and initialize the framework as soon as possible
-during program execution. Make sure that the turlt
+during program execution. Make sure that the turtles installation location
+is visible to the Tcl interpreter on the target system.
 
 ### Starting Traces
 
