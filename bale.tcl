@@ -20,6 +20,8 @@ package require turtles::bale::machine 0.1
 # The commands exposed by the \c ::turtles::bale namespace are necessarily
 # post-hoc operations. As such the data needs to be persisted to disk in
 # the form of a sqlite database.
+#
+# NB: The current implementation is incomplete and as such will not work.
 namespace eval ::turtles::bale {
 	variable prelude
 	namespace export find_connected_procs init recv prelude
@@ -30,6 +32,26 @@ set ::turtles::bale::prelude {
 }
 
 ## Groups procs which are connected by invocation into sets.
+#
+# The underlying implementation follows the Gallager-Humblet-Spira algorithm for MST.
+# (cf. https://sites.google.com/site/gopalpandurangan/dnabook.pdf, pp. 102-106)
+#
+# A k-machine model is simulated using threads as stand-ins for machines.
+# The phases of the algorithm are roughly defined as follows:
+#
+# Phase 0: Load call records from storage and balance across local storage of machines.
+# Copy neighbors collection to outer edges and sort by call count in descending order.
+# Signal to k-machine model threads to prepare for MST phases.
+#
+# Phase 1: Find Maximum Outgoing Edge (MOE) for each MST fragment.
+#
+# Phase 2: Merge MST fragments along found MOEs.
+#
+# Phase 3: Check for termination condition. If not done, go to phase 1. Otherwise, go to phase 4.
+# The algorithm terminates when each node in the graph has no adjacent edges radiating out to
+# another node not in the MST fragment to which it belongs.
+#
+# Phase 4: Summarize results.
 #
 # \param[in] db the sqlite database from which to pull trace information
 # \param[in] k the number of threads in the k-machine model for performing the distributed MST (default: 1, i.e., non-distributed)
@@ -59,18 +81,12 @@ proc ::turtles::bale::find_connected_procs {db {k 1} {callThreshold 0}} {
 		}
 	}
 	::turtles::kmm::scatterv {add_call} $msgv
-	# Phase 0: Signal to k-machine model threads to prepare for MST phases.
-	# Copy neighbors collection to outer edges and sort by call count in descending order.
 	set msgv [dict create]
 	for {set i 0} {$i < $k} {incr i} {
 		dict set msgv $i 0
 	}
+	# Kicks off chain of phases.
 	::turtles::kmm::scatterv {phase_init} $msgv
-	# While MST forest is incomplete...
-	#   Signal to k-machine model threads to kick off "Find MOE" phase.
-	#   Phase 1: Find MOE. Wait for forest to be traversed.
-	#   Signal to k-machine model to kick off "Merge" phase.
-	#   Phase 2: Merge. Wait for new forest of roots to be updated.
 	::turtles::kmm::wait_until_done
 	::turtles::kmm::stop
 }
@@ -79,16 +95,23 @@ proc ::turtles::bale::find_connected_procs {db {k 1} {callThreshold 0}} {
 #
 # The worker thread initializes its internal state and waits for commands to be send via ::thread::send.
 #
-# Actual handling of the commands is delegated to the ::turtles::bale::recv.
-#
-# \param[in] i the k-machine identifier
-# \param[in] k the number of machines participating in the k-machine model
+# Actual handling of the commands is delegated to \c ::turtles::bale::recv.
 proc ::turtles::bale::init {} {
 	global ::turtles::bale::machineState
 	# Initialize the machine state dictionary.
 	set ::turtles::bale::machineState [::turtles::bale::machine::init]
 }
 
+## K-machine model message dispatcher for a single "machine".
+#
+# Given a command and concomitant arguments, this function determines the appropriate action to take.
+#
+# Most responses involve calling a handler function which returns a collection of messages to disseminate.
+# In this way, each message processed triggers a cascade of responses which in turn trigger another cascade of messages
+# in order to drive the computation forward.
+#
+# \param[in] cmd the message type, i.e., command to execute
+# \param[in] cmdArgs the arguments for the given message type/command
 proc ::turtles::bale::recv {cmd cmdArgs} {
 	switch $cmd {
 		# Generic phase commands
