@@ -146,10 +146,12 @@ proc ::turtles::persistence::base::finalize {dbcmd} {
 			SELECT proc_id, proc_name, time_defined FROM main.proc_ids
 			WHERE time_defined > $lastFinalizeTime
 			ON CONFLICT DO NOTHING;
+
 			INSERT INTO stage1.call_pts
 			SELECT caller_id, callee_id, trace_id, time_enter, time_leave FROM main.call_pts
 			WHERE time_leave IS NOT NULL AND time_leave < $time0
 			ON CONFLICT DO NOTHING;
+
 			DELETE FROM main.call_pts
 			WHERE time_leave IS NOT NULL AND time_leave < $time0;
 		}
@@ -214,7 +216,18 @@ proc ::turtles::persistence::base::init_stages {dbcmd commitMode finalStageName}
 proc ::turtles::persistence::base::close_stages {dbcmd} {
 	if { [info comm $dbcmd] ne {} } {
 		if { [ ::turtles::persistence::base::commit_mode_is_staged $dbcmd ] } {
-			$dbcmd eval { DETACH DATABASE stage1; }
+			$dbcmd eval {
+				INSERT INTO stage1.proc_ids
+				SELECT p0.proc_id, p0.proc_name, p0.time_defined FROM main.proc_ids AS p0
+				LEFT JOIN stage1.proc_ids AS p1 ON p0.proc_id = p1.proc_id
+				WHERE p1.proc_id IS NULL
+				ON CONFLICT DO NOTHING;
+				INSERT INTO stage1.call_pts
+				SELECT caller_id, callee_id, trace_id, time_enter, time_leave FROM main.call_pts
+				WHERE true
+				ON CONFLICT DO NOTHING;
+				DETACH DATABASE stage1;
+			}
 		}
 		$dbcmd close
 	}
