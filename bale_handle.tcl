@@ -478,7 +478,7 @@ proc ::turtles::bale::handle::phase_init {machineStateP cmdArgs} {
 }
 
 proc ::turtles::bale::handle::phase_done {machineStateP cmdArgs} {
-	set msgv [init_msgv {phase_init}]
+	set msgv [init_msgv {phase_init} {bye}]
 	upvar $machineStateP machineState
 	dict with machineState {
 		if { $machinesInPhase != 0 } {
@@ -502,7 +502,7 @@ proc ::turtles::bale::handle::phase_done {machineStateP cmdArgs} {
 						}
 					}
 					4 { # Summarize results
-						# @TODO: Build message to send back to supervisor here?
+						dict update msgv {bye} _msg {dict lappend _msg $::turtles::kmm::myself}
 					}
 				}
 			}
@@ -513,7 +513,15 @@ proc ::turtles::bale::handle::phase_done {machineStateP cmdArgs} {
 
 proc ::turtles::bale::handle::summarize {machineStateP cmdArgs} {
 	set msgv [init_msgv {phase_done}]
-	# @TODO: something useful...
+	upvar $machineStateP machineState
+	dict with machineState {
+		foreach procNode $procs {
+			dict with procNode {
+				set weight [dict get $neighbors $parent]
+				puts "$root\t$parent\t$weight\t$procId\t$procName"
+			}
+		}
+	}
 	for {set i 0} {i < $::turtles::kmm::machines} {incr i} {
 		# Notify all other machines that this machine has finished phase 1 for all hosted proc nodes.
 		dict update msgv {phase_done} _msg { dict lappend _msg $i $::turtles::kmm::myself }
