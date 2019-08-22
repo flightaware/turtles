@@ -24,21 +24,9 @@ namespace eval ::turtles::bale::handle {
 		put_state
 }
 
-
-
 ## Adds proc nodes to the dictionary of procs.
 #
-# Each node is itself represented as a dictionary with the following fields:
-# * \c procId: the proc name hash
-# * \c procName: the fully-qualified
-# * \c neighbors: a dictionary of neighbors. Each neighbor is represented as a {int int} list indicating the other edge terminus and weight, respectively.
-# * \c outerEdges: a list of adjacent node labels outside of the node's current MST fragment
-# * \c innerEdges: a list of adjacent node labels within the node's current MST fragment
-# * \c root: the \c procId of the MST fragment root which coordinates downcast and convergecast within the fragment
-# * \c parent: the \c procId of the proc node's immediate parent in the MST. A root node is its own parent.
-# * \c children: a \c procId list of the proc node's children in the MST
-# * \c moe: maximum outgoing edge in the MST fragment. This is represented as a {int int int} list representing callerId, calleeId, and calls (edge weight), respectively.
-# * \c awaiting: A decrement counter used to keep state during phase work.
+# See \c ::turtles::bale::proc for the definition of a proc node.
 #
 # \param[in,out] machineStateP a name reference to a state dictionary
 # \param[in] cmdArgs a list with type stride {int string} providing \c procId and \c procName
@@ -83,7 +71,7 @@ proc ::turtles::bale::handle::add_call {machineStateP cmdArgs} {
 ## Trigger the pre-GHS initialization of all the nodes. Order the outgoing edges by decreasing weight.
 #
 # \param[in,out] machineStateP a name reference to a state dictionary
-# \param[in] cmdArgs a \c procId list corresponding to the roots of subtrees to search
+# \param[in] cmdArgs a \c procId list corresponding to the roots of subtrees to prepare
 proc ::turtles::bale::handle::prepare {machineStateP cmdArgs} {
 	set msgv [init_msgv {phase_done}]
 	upvar $machineStateP machineState
@@ -179,7 +167,7 @@ proc ::turtles::bale::handle::test_moe {machineStateP cmdArgs} {
 					} else {
 						# NB: outerEdges MUST be sorted already in descending order by edge weight (calls) for this to work.
 						set toId [lindex $outerEdges 0]
-						dict update msgv {req_root} _msg { dict lappend _msg [::turtles::kmm::machine_hash $toId] $fromId $toId }
+						dict update msgv {req_root} _msg { dict lappend _msg [::turtles::kmm::machine_hash $toId] $toId $fromId}
 					}
 				}
 			}
@@ -191,14 +179,14 @@ proc ::turtles::bale::handle::test_moe {machineStateP cmdArgs} {
 ## Triggers requests for root information from one set of nodes to another.
 #
 # \param[in,out] machineStateP a name reference to a state dictionary
-# \param[in] cmdArgs a list with {int int} stride indicating sender and recipient, respectively
+# \param[in] cmdArgs a list with {int int} stride indicating recipient and sender, respectively
 proc ::turtles::bale::handle::req_root {machineStateP cmdArgs} {
 	# Initialize the buffer of rsp_root messages to send.
 	set msgv [init_msgv {rsp_root}]
 	upvar $machineStateP machineState
 	dict with machineState {
-		foreach {fromId toId} $cmdArgs {
-			if { [ ::turtles::bale::machine::has_proc machineState $procId ] } {
+		foreach {toId fromId} $cmdArgs {
+			if { [ ::turtles::bale::machine::has_proc machineState $toId ] } {
 				# No state check required here - this is a reflexive response that does not alter
 				# the state of the recipient.
 				dict with procs $toId {
@@ -213,7 +201,7 @@ proc ::turtles::bale::handle::req_root {machineStateP cmdArgs} {
 ## Triggers responses to root information requests back to the original senders.
 #
 # \param[in,out] machineStateP a name reference to a state dictionary
-# \param[in] cmdArgs a list with {int int} stride indicating original sender and recipient root id, respectively.
+# \param[in] cmdArgs a list with {int int} stride indicating original sender id and recipient root id, respectively.
 proc ::turtles::bale::handle::rsp_root {machineStateP cmdArgs} {
 	# Initialize the buffer of found_moe messages to send.
 	set msgv [init_msgv {test_moe} {found_moe}]
@@ -224,7 +212,7 @@ proc ::turtles::bale::handle::rsp_root {machineStateP cmdArgs} {
 				dict with procs $procId {
 					# State check - only proceed if in valid state for this message and there are outer edges to work with.
 					if { $state != {WAIT_MOE} || [llength $outerEdges] == 0 } { continue }
-					if { $root eq $rspRoot } {
+					if { $root == $rspRoot } {
 						# Internal edge. Move on to next test.
 						lappend innerEdges [lindex $outerEdges 0]
 						set outerEdges [lrange $outerEdges 1 end]
@@ -247,7 +235,7 @@ proc ::turtles::bale::handle::rsp_root {machineStateP cmdArgs} {
 ## Triggers delivery of a subtree branch MOE to the subtree root.
 #
 # \param[in,out] machineStateP a name reference to a state dictionary
-# \params cmdArgs a list with {int {int int int}} stride indicating the subtree root and the branch MOE, respectively
+# \params[in] cmdArgs a list with {int {int int int}} stride indicating the subtree root and the branch MOE, respectively
 proc ::turtles::bale::handle::found_moe {machineStateP cmdArgs} {
 	# Initialize the buffer of test_moe messages to send.
 	set msgv [init_msgv {test_moe} {found_moe}]
@@ -398,7 +386,7 @@ proc ::turtles::bale::handle::req_combine {machineStateP cmdArgs} {
 ## Triggers delivery of new-root message to establish new fragment boundaries.
 #
 # \param[in,out] machineStateP a name reference to a state dictionary
-# \param[in] cmdArgs a list with {int int} stride indicating the root and parent, respectively.
+# \param[in] cmdArgs a list with {int int int} stride indicating the recipient, new root, and new parent, respectively.
 proc ::turtles::bale::handle::new_root {machineStateP cmdArgs} {
 	set msgv [init_msgv {new_root}]
 	upvar $machineStateP machineStaet
@@ -434,6 +422,10 @@ proc ::turtles::bale::handle::new_root {machineStateP cmdArgs} {
 	return [fix_msg $msgv]
 }
 
+## Triggers a "machine" in the k-machine model to start the phase identified by the given arguments.
+#
+# \param[in,out] machineStateP a name reference to a state dictionary
+# \param[in] cmdArgs a singleton list containing the identifier of the phase to start
 proc ::turtles::bale::handle::phase_init {machineStateP cmdArgs} {
 	set msgv [init_msgv {phase_done}]
 	upvar $machineStateP machineState
@@ -477,6 +469,13 @@ proc ::turtles::bale::handle::phase_init {machineStateP cmdArgs} {
 	return [fix_msgv $msgv]
 }
 
+## Triggers a "machine" in the k-machine model to end the phase identified by the given arguments.
+#
+# If this is the last machine to receive the message, this will trigger a phase init of the next phase.
+# If there are no more phases, it will initiate a teardown of the k-machine model.
+#
+# \param[in,out] machineStateP a name reference to a state dictionary
+# \param[in] cmdArgs a singleton list containing the identifier of the phase to end
 proc ::turtles::bale::handle::phase_done {machineStateP cmdArgs} {
 	set msgv [init_msgv {phase_init} {bye}]
 	upvar $machineStateP machineState
@@ -511,6 +510,10 @@ proc ::turtles::bale::handle::phase_done {machineStateP cmdArgs} {
 	return [fix_msgv $msgv]
 }
 
+## Triggers a "machine" in the k-machine model to summarize the final results of the algorithm.
+#
+# \param[in,out] machineStateP a name reference to a state dictionary
+# \param[in] cmdArgs a singleton list containing the identifier of the phase to start
 proc ::turtles::bale::handle::summarize {machineStateP cmdArgs} {
 	set msgv [init_msgv {phase_done}]
 	upvar $machineStateP machineState
@@ -528,6 +531,12 @@ proc ::turtles::bale::handle::summarize {machineStateP cmdArgs} {
 	}
 }
 
+## Requests the number of active proc nodes resident on the target "machine".
+#
+# A proc node is considered active if it has edges radiating outside its current MST fragment.
+#
+# \param[in,out] machineStateP a name reference to a state dictionary
+# \param[in] cmdArgs a singleton list containing the identifier of the machine requesting the statistic
 proc ::turtles::bale::handle::req_active {machineStateP cmdArgs} {
 	set msgv [init_msgv {rsp_active}]
 	upvar $machineStateP machineState
@@ -539,6 +548,14 @@ proc ::turtles::bale::handle::req_active {machineStateP cmdArgs} {
 	return [fix_msgv $msgv]
 }
 
+## Processes responses to requests to other machines for the number of resident active proc nodes.
+#
+# A proc node is considered active if it has edges radiating outside its current MST fragment.
+#
+# If all the machines have responded to each other, the phase is considered finished.
+#
+# \param[in,out] machineStateP a name reference to a state dictionary
+# \param[in] cmdArgs a singleton list containing a count of active proc nodes
 proc ::turtles::bale::handle::rsp_active {machineStateP cmdArgs} {
 	set msgv [init_msgv {phase_done}]
 	upvar $machineStateP machineState
