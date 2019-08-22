@@ -8,6 +8,19 @@ namespace eval ::turtles::bale::proc {
 
 ## Initializes a proc node with defaults given a proc ID and a proc name.
 #
+# Each node is itself represented as a dictionary with the following fields:
+# * \c procId: the proc name hash
+# * \c procName: the fully-qualified
+# * \c neighbors: a dictionary of neighbors. Each neighbor is represented as a {int int} list indicating the other edge terminus and weight, respectively.
+# * \c outerEdges: a list of adjacent node labels outside of the node's current MST fragment
+# * \c innerEdges: a list of adjacent node labels within the node's current MST fragment
+# * \c root: the \c procId of the MST fragment root which coordinates downcast and convergecast within the fragment
+# * \c parent: the \c procId of the proc node's immediate parent in the MST. A root node is its own parent.
+# * \c children: a \c procId list of the proc node's children in the MST
+# * \c moe: maximum outgoing edge in the MST fragment. This is represented as a {int int int} list representing callerId, calleeId, and calls (edge weight), respectively.
+# * \c awaiting: a decrement counter used to keep state during phase work.
+# * \c state: a representation of the proc node's current state in the GHS algorithm. This is used as a sanity guard before executing certain operations.
+#
 # \param[in] procId a hash of the given procName
 # \param[in] procName the fully qualified name of the proc
 proc ::turtles::bale::proc::init {procId procName} {
@@ -25,6 +38,9 @@ proc ::turtles::bale::proc::init {procId procName} {
 				 state {IDLE} ]
 }
 
+## Validates whether the proc node variable referenced by the given name is valid.
+#
+# \param[in] procP a name reference to a proc node dictionary
 proc ::turtles::bale::proc::validate {procP} {
 	upvar $procP procA
 	return [expr { \
@@ -46,6 +62,14 @@ proc ::turtles::bale::proc::validate {procP} {
 					   [ string is entier [dict get $procA awaiting ] ] } ]
 }
 
+
+## Produces a difference dictionary between two proc nodes specified by the given name references.
+#
+# This is primarily used in testing to determine whether an operation on a proc node has had the desired effect.
+# It is fairly expensive and is not recommended for production code.
+#
+# \param[in] proc1P
+# \param[in] proc2P
 proc ::turtles::bale::proc::diff {proc1P proc2P} {
 	upvar $proc1P procA
 	upvar $proc2P procB
@@ -70,7 +94,7 @@ proc ::turtles::bale::proc::diff {proc1P proc2P} {
 					set vD [dict create]
 					dict for {k1 v1} $vA {
 						if { [dict exists $vB $k1] } {
-							set v2 [dict get $vB $k1] 
+							set v2 [dict get $vB $k1]
 							if { $v1 != $v2 } {
 								dict set vD $k1 $v2
 							}
@@ -91,7 +115,7 @@ proc ::turtles::bale::proc::diff {proc1P proc2P} {
 			}
 		} else {
 			dict lappend procD - $kA
-		}		
+		}
 	}
 	dict for {k v} $procB {
 		if { ![dict exists $procA $k] } {
