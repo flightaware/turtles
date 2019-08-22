@@ -7,8 +7,36 @@ package require turtles::hashing           0.1
 ## \file persistence_base.tcl
 # Provides functions and lambda bodies common to both MT and event-loop versions
 # of the persistence mechanisms.
+#
+# This is the base underlying mechanism for the proc entry and exit handlers to persist
+# trace information about proc execution for the purpose of building call
+# graphs and other execution analysis artifacts.
+#
+# Under the hood, the library makes extensive use of Tcl's
+# sqlite facilities for portability and ease of aggregation.
+#
+# In staged mode, persistence is handled in two stages: ephemeral (0) and final (1).
+# During the ephemeral stage, the handlers access an in-memory
+# sqlite database (created with the \c :memory: literal name).
+#
+# If the program crashes or otherwise suddenly exits, any
+# information which has not transitioned from the ephemeral to
+# the final stage will be lost. An option is provided to allow
+# consumers to skip the ephemeral stage and write directly to
+# final storage at the cost of increased overhead and decreased
+# performance, namely direct mode.
+#
+# The writes to ephemeral storage are marshalled implicitly
+# through the following lambdas:
+#
+# * \c ::turtles::persistence::base::add_proc_id
+# * \c ::turtles::persistence::base::add_call
+# * \c ::turtles::persistence::base::update_call
+#
+# These lambdas are then used by the MT and event-loop versions of the persistence mechanism
+# according to their scheduling logic.
 
-## Namespace for common persistence lambda bodies.
+## Namespace for common persistence lambda bodies and utility functions.
 namespace eval ::turtles::persistence::base {
 	variable nextFinalizeCall
 	namespace export \
@@ -19,13 +47,32 @@ namespace eval ::turtles::persistence::base {
 		finalize nextFinalizeCall
 }
 
+## Safely quotes a string so that it can be wrapped with single quotes in a sqlite3 DB command.
+#
+# The proc replaces all backslashes with a double backslash and then all single quotes with
+# two single quotes.
+#
+# This is made necessary by the fact that commands passed by \c thread::send cannot expect
+# to expand variables that properly belong to the calling thread and are not present in the
+# called thread.
+#
+# A better option would probably be to set up channels for interthread communication so that
+# the amount of data transferred would be minimized.
+#
+# \param[in] unsafe the string to be made safe
 proc ::turtles::persistence::base::safe_quote {unsafe} {
 	regsub -all {\\} $unsafe {\\\\} safeBS
 	regsub -all {'} $safeBS {''} safeSQ
 	return $safeSQ
 }
 
-
+## Deterministically constructs the persistence DB filename based on provided arguments.
+#
+# The format is \c $dbPath/$dbPrefix-[pid].db
+#
+# \param[in] dbPath the path under which the database resides
+# \param[in] dbPrefix the first part of the database filename
+# \param[in] myPid an optional pid argument to use for overriding so processes can access DBs other than their own
 proc ::turtles::persistence::base::get_db_filename {{dbPath {./}} {dbPrefix {turtles}} {myPid {}}} {
 	if { $myPid eq {} } {
 		set myPid [pid]
@@ -33,6 +80,13 @@ proc ::turtles::persistence::base::get_db_filename {{dbPath {./}} {dbPrefix {tur
 	return [file normalize [file join $dbPath [subst {$dbPrefix-$myPid.db}]]]
 }
 
+## Copies the database file from a forked child's parent to the file to be used by the child itself.
+#
+# This simply gets the child's process parent and determines the appropriate filename
+# so it can make a copy for itself.
+#
+# \param[in] dbPath the path under which the database resides
+# \param[in] dbPath the first part of the database filename
 proc ::turtles::persistence::base::copy_db_from_fork_parent {{dbPath {./}} {dbPrefix {turtles}}} {
 	set ppid [id process parent]
 	file copy \
@@ -40,6 +94,12 @@ proc ::turtles::persistence::base::copy_db_from_fork_parent {{dbPath {./}} {dbPr
 		[::turtles::persistence::base::get_db_filename $dbPath $dbPrefix]
 }
 
+## Returns a lambda suitable for passing via \c thread::send that adds a proc entry to the database.
+#
+# \param[in] dbcmd the sqlite3 database command
+# \param[in] procId the proc name hash
+# \param[in] procName the fully-qualified canonical proc name
+# \param[in] timeDefined the time in epoch μs when the proc was defined during execution
 proc ::turtles::persistence::base::add_proc_id {dbcmd procId procName timeDefined} {
 	set safeProcName [::turtles::persistence::base::safe_quote $procName]
 	return [subst {
@@ -51,6 +111,19 @@ proc ::turtles::persistence::base::add_proc_id {dbcmd procId procName timeDefine
 	}]
 }
 
+## Returns a lambda suitable for passing via \c thread::send that adds a call point entry to the database.
+#
+# This function is primarily used by the proc enter handler.
+#
+# The optional timeLeave parameters is mostly for introspection on the timings of \c ::turtles::* operations.
+# The proc enter/leave handlers can't use the general mechanism because it will create an infinite recursion.
+#
+# \param[in] dbcmd the sqlite3 database command
+# \param[in] callerId the caller proc name hash
+# \param[in] calleeId the callee proc name hash
+# \param[in] traceId a unique identifier for enabling the system to update the call point entry
+# \param[in] timeEnter the time in epoch μs when the proc was entered during execution
+# \param[in] timeLeave the time in epoch μs when the proc was exited during execution (optional)
 proc ::turtles::persistence::base::add_call {dbcmd callerId calleeId traceId timeEnter {timeLeave {NULL}}} {
 	return [subst {
 		if { \[info comm $dbcmd\] ne {} } {
@@ -62,6 +135,17 @@ proc ::turtles::persistence::base::add_call {dbcmd callerId calleeId traceId tim
 	}]
 }
 
+## Returns a lambda suitable for passing via \c thread::send that updates a call point entry in the database.
+#
+# This function is primarily used by the proc leave handler.
+#
+# The updated record must match the callerId, calleId, and traceId.
+#
+# \param[in] dbcmd the sqlite3 database command
+# \param[in] callerId the caller proc name hash
+# \param[in] calleeId the callee proc name hash
+# \param[in] traceId a unique identifier for enabling the system to update the call point entry
+# \param[in] timeLeave the time in epoch μs when the proc was exited during execution (optional)
 proc ::turtles::persistence::base::update_call {dbcmd callerId calleeId traceId timeLeave} {
 	return [subst {
 		if { \[info comm $dbcmd\] ne {} } {
@@ -76,7 +160,8 @@ proc ::turtles::persistence::base::update_call {dbcmd callerId calleeId traceId 
 
 ## Creates the proc id table if it does not already exist.
 #
-# \param[in] stage persistence stage DB
+# \param[in] dbcmd the sqlite3 database command
+# \param[in] stage the persistence stage (main or stage1)
 proc ::turtles::persistence::base::init_proc_id_table {dbcmd {stage {main}}} {
 	$dbcmd eval [subst {
 		CREATE TABLE IF NOT EXISTS $stage.proc_ids
@@ -84,9 +169,10 @@ proc ::turtles::persistence::base::init_proc_id_table {dbcmd {stage {main}}} {
 	}]
 }
 
-## Creates the call point table if it does not already exist
+## Creates the call point table if it does not already exist.
 #
-# \param[in] stage persistence stage DB
+# \param[in] dbcmd the sqlite3 database command
+# \param[in] stage the persistence stage (main or stage1)
 proc ::turtles::persistence::base::init_call_pt_table {dbcmd {stage {main}}} {
 	$dbcmd eval [subst {
 		CREATE TABLE IF NOT EXISTS $stage.call_pts
@@ -97,7 +183,8 @@ proc ::turtles::persistence::base::init_call_pt_table {dbcmd {stage {main}}} {
 
 ## Creates a number of useful views for aggregate statistics about calls.
 #
-# \param[in] stage persistence stage DB
+# \param[in] dbcmd the sqlite3 database command
+# \param[in] stage the persistence stage (main or stage1)
 proc ::turtles::persistence::base::init_views {dbcmd {stage {main}}} {
 	$dbcmd eval [subst {
 		CREATE VIEW IF NOT EXISTS $stage.calls_by_caller_callee AS
@@ -129,7 +216,15 @@ proc ::turtles::persistence::base::init_views {dbcmd {stage {main}}} {
 
 ## Transfers trace information from the ephemeral to the finalized DB.
 #
-# NB: This function should only be executed directly in the recorder thread.
+# The proc is used in staged commit mode, but not direct.
+#
+# It should only be executed directly in the recorder thread in MT schedule mode.
+#
+# NB: Calling this function will remove all call point entries from the ephemeral stage
+# up until the time of entry into this proc after those entries have been transferred
+# to the final stage. This is done to keep memory costs down and simplify the query logic.
+#
+# \param[in] dbcmd the sqlite3 database command
 proc ::turtles::persistence::base::finalize {dbcmd} {
 	set time0 [clock microseconds]
 	# Only proceed if the databases exist.
@@ -162,30 +257,21 @@ proc ::turtles::persistence::base::finalize {dbcmd} {
 	}
 }
 
+## Determines whether a persistence database is in staged or direct mode.
+#
+# Under the hood, this checks how many databases are attached.
+# Staged mode has both the final persistence and the in-memory persistence.
+#
+# \param[in] dbcmd the sqlite3 database command
 proc ::turtles::persistence::base::commit_mode_is_staged {dbcmd} {
 	return [expr {[info comm $dbcmd ] ne {} && [llength [$dbcmd eval { PRAGMA database_list }]] > 3}];
 }
 
-## Initializes a given stage in the persistence model.
+## Initialize the persistence stages with all the requisite tables and views.
 #
-# Under the hood, this creates the sqlite database and the requisite tables
-# for storing trace information.
-#
-# Without a \c stageName argument, it defaults to an in-memory database.
-# It is recommended to invoke this variant only once during execution.
-#
-# \param[in] stage the stage command (i.e., sqlite DB) to be used for this stage
-# \param[in] stageName the filename of the sqlite DB (default = \c :memory:)
-# proc ::turtles::persistence::base::init_stage {stage {stageName :memory:}} {
-# 	if { $stageName ne {:memory:} && $stageName ne {} } {
-# 		file mkdir [file normalize [file dirname $stageName]]
-# 	}
-# 	sqlite3 $stage $stageName
-# 	::turtles::persistence::base::init_proc_id_table $stage
-# 	::turtles::persistence::base::init_call_pt_table $stage
-# 	::turtles::persistence::base::init_views $stage
-# }
-
+# \param[in] dbcmd the sqlite3 database command
+# \param[in] commitMode \c staged or \c direct
+# \param[in] finalStageName the actual filename for the final persistence DB
 proc ::turtles::persistence::base::init_stages {dbcmd commitMode finalStageName} {
 	if { $finalStageName ne {} } {
 		file mkdir [file normalize [file dirname $finalStageName]]
@@ -212,7 +298,7 @@ proc ::turtles::persistence::base::init_stages {dbcmd commitMode finalStageName}
 # Under the hood, this closes the associated sqlite DB.
 # The associated command will no longer be available after this completes.
 #
-# \param[in] dbcmd the command (i.e., sqlite DB) for
+# \param[in] dbcmd the sqlite3 database command
 proc ::turtles::persistence::base::close_stages {dbcmd} {
 	if { [info comm $dbcmd] ne {} } {
 		if { [ ::turtles::persistence::base::commit_mode_is_staged $dbcmd ] } {
@@ -242,6 +328,11 @@ proc ::turtles::persistence::base::close_stages {dbcmd} {
 #
 # The variable holding the pointer to the next finalize prompt is unset.
 #
+# Note that this is only needed in \c ev schedule mode to target the cancellation
+# of any pending finalize job. In \c mt schedule mode, all jobs in the scheduler
+# thread can be summarily cancelled.
+#
+# \param[in] nextRef the after job id to cancel
 proc ::turtles::persistence::base::stop_finalizer {nextRef} {
 	upvar $nextRef next
 	# Force any pending finalize call to execute.
@@ -256,6 +347,8 @@ proc ::turtles::persistence::base::stop_finalizer {nextRef} {
 #
 # NB: This should not be invoked while trace handlers which could modify
 # the stage databases are active.
+#
+# \param[in] dbcmd the sqlite3 database command
 proc ::turtles::persistence::base::stop_recorder {dbcmd} {
 	update
 	# Do a last finalize to pick up any missing trace information.
