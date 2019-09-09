@@ -84,6 +84,12 @@ install-docs:
 	@rsync -qvzp --chmod=Du=rwx,Dgo=rx,Fu=rw,Fog=r $(DOCDIR)/ $(DOCTARGET)/
 	@echo "Installed $(PACKAGE) documentation to $(DOC)"
 
+report:
+	lualatex -shell-escape turtles.tex
+	biber turtles
+	lualatex -shell-escape turtles.tex
+
+
 uninstall:
 	rm -rf $(TARGET)
 	rm -rf $(DOCTARGET)
