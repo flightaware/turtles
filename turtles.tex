@@ -10,7 +10,7 @@
   FlightAware \\
   michael.yantosca@flightaware.com
 }
-  
+
 \begin{document}
 
 \maketitle
@@ -107,7 +107,85 @@
 }
 
 \section{Design}{
-  TBD
+  A few guiding principles informed the design of the TURTLES project, namely
+  minimization of overhead, correctness of collection, ease of use, and legibility
+  of results. For simplicity, the call records do not attempt to store information
+  for complete traces through the full call stack but rather capture the immediate
+  caller-callee relationship.
+
+  Starting and stopping data collection are each achieved by designated procs.
+
+  \subsubsection{Initialization}{
+    Starting data collection is achieved by a designated proc which sets up
+    the necessary ephemeral and final storage for call records per arguments
+    supplied by the user. A trace handler is added to the `proc` command on exit
+    to bootstrap the assignment of trace handlers for entry and exit to every
+    proc defined thereafter.
+
+    For best results, it is recommended to make the initialization call as early
+    as possible to capture the greatest number of proc definitions. Currently,
+    the TURTLES project does not support retroactively adding proc handlers
+    to procs already defined.
+
+  }
+  \subsubsection{Collection}{
+    The entry and exit handlers capture the times of entry and exit into and out of
+    the covered proc and record this in the form of a call point record. The caller
+    and callee information in each call point record is normalized out to a collection
+    of unique proc definition records.
+
+    \paragraph{Proc Definition}{
+      Each proc defined after data collection starts is stored in a proc definition
+      record. This record is a triple of the proc name, a unique integral identifier,
+      and the time of definition. The proc name is the unaliased, fully-qualified
+      name of the proc, and the integral identifier is a hash of this value.
+      The time of definition is canonically represented in UNIX epoch microseconds.
+    }
+    \paragraph{Call Point}{
+      Each call made is recorded in the form of a call point record. This record
+      is a quintuple consisting of a caller ID, callee ID, trace ID, time of
+      entry, and time of exit. The caller and callee IDs correspond to unique
+      integral identifiers in the set of proc definition records. The trace ID is a
+      unique identifier for distinguishing separate calls with the same caller
+      and callee and is calculated deterministically. Time of entry and exit are
+      canonically represented in UNIX epoch microseconds.
+    }
+    \paragraph{Persistence}{
+      Persistence of call records is handled either directly or in a staged fashion
+      depending on the arguments supplied by the user. In direct mode, the call
+      records are captured and stored immediately in the final storage. This has
+      the benefit of retaining the most information in case execution is interrupted
+      but at the cost of speed. In staged mode, the call records are captured and
+      stored in ephemeral storage while a background task or thread periodically
+      transfers unfinalized records in bulk to the final persistent storage. The
+      immediate processing cost of each call record is reduced, but the risk of
+      greater overall loss in cases of interruption is increased.
+    }
+  }
+  \subsubsection{Finalization}{
+    Ending data collection is achieved by a designated proc which disables
+    all the relevant trace handlers along with the handler on the `proc` command.
+    If collection was operating in staged mode, the ephemeral storage is flushed
+    to the final storage.
+  }
+  \subsubsection{Analysis}{
+    For post-hoc analysis, a clustering tool is provided to construct a call graph
+    whose edges are the immediate caller-callee pairings and nodes are individual
+    procs. The edge weights are defined as the number of invocations of the callee
+    by the caller.
+
+    In anticipation of a highly-connected graph with many nodes, initial attempts
+    to realize the clustering tool employed the Gallagher-Humblet-Spira (GHS) distributed
+    minimum spanning tree algorithm\autocite[102-106]{DNA}. Development of a $k$-machine
+    model\autocite[129-133]{DNA} using Tcl threads as the individual machines was started but ultimately
+    abandoned due to low development velocity. In its place, a simple breadth-first
+    flooding approach\autocite[55-58]{DNA} was adopted and found to be sufficient to the task.
+
+    The call records themselves are stored in a format that is searchable and aggregable
+    via standard SQL statements. This provides the developer with an expressive foundation
+    for data analysis and visualization which has long enjoyed wide adoption with a
+    minimal learning curve.
+  }
 }
 
 \section{Implementation}{
