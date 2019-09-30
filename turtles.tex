@@ -118,7 +118,7 @@
   \subsection{Initialization}{
     Starting data collection is achieved by a designated proc which sets up
     the necessary ephemeral and final storage for call records per arguments
-    supplied by the user. A trace handler is added to the `proc` command on exit
+    supplied by the user. A trace handler is added to the \texttt{proc} command on exit
     to bootstrap the assignment of trace handlers for entry and exit to every
     proc defined thereafter.
 
@@ -164,7 +164,7 @@
   }
   \subsection{Finalization}{
     Ending data collection is achieved by a designated proc which disables
-    all the relevant trace handlers along with the handler on the `proc` command.
+    all the relevant trace handlers along with the handler on the \texttt{proc}command.
     If collection was operating in staged mode, the ephemeral storage is flushed
     to the final storage.
   }
