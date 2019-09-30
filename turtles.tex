@@ -187,7 +187,84 @@
 }
 
 \section{Implementation}{
-  TBD
+  As a pure Tcl implementation, the TURTLES project relies heavily on the
+  introspection facilities in the language, particularly trace handlers.
+  This section examines some of the implementation details and provides
+  justification for the decisions made.
+
+  \subsection{Integration}{
+    For most users, installing the library in the Tcl search path and placing
+    the directive \texttt{package require turtles} inside the target program's source
+    should suffice to enable usage of the library. The project \texttt{README.md} contains
+    instructions on installation, as well as commencement and termination of data
+    collection in the ostensibly common case. The particulars of usage and data collection
+    are covered in following subsections.
+  }
+
+  \subsection{Parameterization}{
+    A set of command-line arguments are used to parameterize the call record colletion
+    so that the user may specify parameters at runtime without having to modify a program's source.
+    The command-line parameters themselves are bracketed by the literals \texttt{+TURTLES} and \texttt{-TURTLES}
+    to distiguish arguments meant for the TURTLES library from arguments to the program.
+    The arguments to TURTLES may interspersed anywhere in the command line provided that
+    they are appropriately bracketed.
+
+    During initialization, the TURTLES parameters are destructively consumed by the
+    \texttt{::turtles::options::consume} proc, which takes the name reference of an \texttt{argv}-style
+    string as its sole argument. Therefore, it is  strongly recommended to place the
+    initialization call to \texttt{::turtles::release\_the\_turtles} as close to the main entry point
+    of the target program as possible, preferably before the program's own command-line argument parsing.
+
+    Extensive instructions on command-line usage is available in the doxygen code documentation
+    for \texttt{turtles.tcl}, but the gist of each option is replicated here for the convenience of the reader.
+
+    \subsubsection{\texttt{-enabled}}{
+      The TURTLES library remains dormant unless explicitly enabled. This enables programs to
+      be instrumented with the TURTLES library without having to require boolean debug flags
+      in the source. If the flag is not set at the command-line, collection will not happen
+      since the trace handlers and persistence mechanisms will not be created at all, avoiding
+      even idle overhead.
+    }
+    \subsubsection{\texttt{-commitMode (direct|staged) [-intervalMillis <ms>] [-scheduleMode (ev|mt)]}}{
+      As mentioned in the Design section, the TURTLES library can persist call records
+      either directly to final storage or indirectly to ephemeral storage which is
+      persisted to final storage at regular intervals. For the indirect staged mode,
+      the interval is specified in milliseconds as an argument to the \texttt{-intervalMillis}
+      command-line switch. For direct mode, the \texttt{-intervalMillis} argument may be
+      omitted. The default mode is \texttt{staged}, and the default finalization
+      interval is \texttt{30000}, or 30s.
+
+      Persistence is implemented through the use of SQLite databases. Ephemeral
+      storage is an in-memory database, while final storage is a database file
+      that is attached to the in-memory database in staged mode and immediately
+      updated in direct mode.
+
+      The \texttt{-scheduleMode} option indicates the method of dispath for the periodic
+      finalization in staged commit mode. Under multithreaded mode, specified by \texttt{mt},
+      the TURTLES library launches two separate Tcl threads, i.e., a recorder and a scheduler.
+      The recorder handles all call record storage updates sequentially according to its thread
+      lambda message queue including finalization operations. The scheduler periodically sends
+      finalizing lambdas to be processed by the recorder according to the configured interval.
+      Under event-loop mode, specified by \texttt{ev}, the TURTLES library launchs a self-recurring
+      after job into the main Tcl event loop. This mode assumes that the event loop is entered
+      subsequently after TURTLES initialization.
+    }
+    \subsubsection{\texttt{-dbPath <directory> -dbPrefix <string>}}{
+      The \texttt{-dbPath} option specifies the directory path only for the SQLite database serving
+      as final storage. The actual database filename is specified by convention
+      informed by the \texttt{-dbPrefix} option. The full filepath is
+      determined as \texttt{<dbPath>/<dbPrefix>-<pid>.db} where \texttt{<pid>}
+      is the operating system process ID of the program. By default, this will
+      yield the filename \texttt{./turtles-<pid>.db}, i.e., \texttt{turtles-<pid>.db}
+      in the current working directory during program execution. The path is canonicalized
+      to an absolute path by the helper function \texttt{::turtles::persistence::base::get\_db\_filename}.
+    }
+    \subsubsection{\texttt{-debug}}{
+      Including the \texttt{-debug} flag in the TURTLES options turns on verbose logging
+      of call record collection to \texttt{stderr}. This is useful during development to
+      ensure calls are appropriately recorded but is not recommended for production runs.
+    }
+  }
 }
 
 \section{Experiments}{
