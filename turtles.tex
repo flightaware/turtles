@@ -115,7 +115,7 @@
 
   Starting and stopping data collection are each achieved by designated procs.
 
-  \subsubsection{Initialization}{
+  \subsection{Initialization}{
     Starting data collection is achieved by a designated proc which sets up
     the necessary ephemeral and final storage for call records per arguments
     supplied by the user. A trace handler is added to the `proc` command on exit
@@ -128,7 +128,7 @@
     to procs already defined.
 
   }
-  \subsubsection{Collection}{
+  \subsection{Collection}{
     The entry and exit handlers capture the times of entry and exit into and out of
     the covered proc and record this in the form of a call point record. The caller
     and callee information in each call point record is normalized out to a collection
@@ -162,13 +162,13 @@
       greater overall loss in cases of interruption is increased.
     }
   }
-  \subsubsection{Finalization}{
+  \subsection{Finalization}{
     Ending data collection is achieved by a designated proc which disables
     all the relevant trace handlers along with the handler on the `proc` command.
     If collection was operating in staged mode, the ephemeral storage is flushed
     to the final storage.
   }
-  \subsubsection{Analysis}{
+  \subsection{Analysis}{
     For post-hoc analysis, a clustering tool is provided to construct a call graph
     whose edges are the immediate caller-callee pairings and nodes are individual
     procs. The edge weights are defined as the number of invocations of the callee
