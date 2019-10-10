@@ -210,11 +210,11 @@
     The arguments to TURTLES may interspersed anywhere in the command line provided that
     they are appropriately bracketed.
 
-    During initialization, the TURTLES parameters are destructively consumed by the
-    \texttt{::turtles::options::consume} proc, which takes the name reference of an \texttt{argv}-style
-    string as its sole argument. Therefore, it is  strongly recommended to place the
-    initialization call to \texttt{::turtles::release\_the\_turtles} as close to the main entry point
-    of the target program as possible, preferably before the program's own command-line argument parsing.
+    During initialization, \texttt{::turtles::options::consume} proc the name reference of an
+    \texttt{argv}-style string and destructively consumes the TURTLES parameters from that variable.
+    Therefore, it is  strongly recommended to place the initialization call to
+    \texttt{::turtles::release\_the\_turtles} as close to the main entry point of the target program
+    as possible, preferably before the program's own command-line argument parsing.
 
     Extensive instructions on command-line usage is available in the doxygen code documentation
     for \texttt{turtles.tcl}, but the gist of each option is replicated here for the convenience of the reader.
@@ -258,13 +258,80 @@
       is the operating system process ID of the program. By default, this will
       yield the filename \texttt{./turtles-<pid>.db}, i.e., \texttt{turtles-<pid>.db}
       in the current working directory during program execution. The path is canonicalized
-      to an absolute path by the helper function \texttt{::turtles::persistence::base::get\_db\_filename}.
+      to an absolute path by the helper \texttt{::turtles::persistence::base::get\_db\_filename}.
     }
     \subsubsection{\texttt{-debug}}{
       Including the \texttt{-debug} flag in the TURTLES options turns on verbose logging
       of call record collection to \texttt{stderr}. This is useful during development to
       ensure calls are appropriately recorded but is not recommended for production runs.
     }
+  }
+
+  \subsection{Initialization}{
+    Commencement of record collection is effected through calling \texttt{::turtles::release\_the\_turtles}
+    with the \texttt{argv}-style command-line argument string reference.
+
+    \subsubsection{Call Record Persistence}{
+      Based on the parameters provided by the user, the TURTLES library opens the SQLite databases that
+      serve as the requisite final and ephemeral call record storage.
+    }
+    \subsubsection{Trace Handlers}{
+      A bootstrapping trace handler is attached to the \texttt{execution leave} event of the \texttt{proc} command.
+      This handler has to determine the fully-qualified original name of the defined proc and
+      add a handler each to the defined proc's \texttt{execution enter} and \texttt{execution leave} events,
+      so it must be done post-definition so the two handlers can attach without an error.
+
+      Additionally, the Tclx package is loaded and its version of the \texttt{fork} command is instrumented
+      with handlers on \texttt{execution enter} and \texttt{execution leave}. This permits for
+      some mitigation in case of process forking, which was a requirement of the MMHF program that
+      engendered this experiment.
+    }
+  }
+
+  \subsection{Collection}{
+    \subsubsection{Deterministic Identification}{
+      \paragraph{Proc ID}{
+        The original name of each proc was hashed to an integral value using a Rabin-Karp rolling hash\autocite{univhash}.
+        The mapping outputs in the range $[0, M_8]$, where $M_8$ is the 8th Mersenne prime, or $2^{31}-1$.
+        Every caller and callee proc defined by the \texttt{proc} command has an entry created in the proc
+        table of the output DB.
+      }
+      \paragraph{Trace ID}{
+        Because the enter and leave handlers are defined separately, there needs to be a way to communicate
+        between the handlers to ensure that the entry and exit of a specific call point are properly associated.
+        This was the impetus for adding the trace id to the call point record. In the first implementation,
+        each trace ID was an integer list hash of the following values: the caller ID, the proc ID, and the
+        proc entry microsecond timestamp. Initially, a stack was used whereby the enter handler would push
+        onto the stack and the leave handler would pop it off under the assumption of single-threaded execution.
+
+        However, this did not account for yielding and other vagaries of the Tcl event loop, and it was
+        observed that the trace IDs would not match up frequently in testing with non-trivial programs.
+        To protect against this, a deterministic scheme was used so that the trace ID was computed
+        as the integer list hash of the thread ID, stack level, caller ID, source line, and called ID.
+        This had the additional benefit of saving the memory required for the stack at the cost of extra compute time.
+        The stack level and source line were included in consideration of cases where a caller calls the callee
+        numerous times in its body. The multi-threaded case has not been tested since it requires an
+        initialization in each thread, and it is expected that there will be bugs in the implementation
+        under those conditions, especially with respect to contention for the call record final storage.
+      }
+    }
+
+    \subsubsection{Enter Handler}{
+      The proc enter handler records its own computation start time, computes the requisite hashes for the call record,
+      records a proc start time, and dispatches a lambda containing the provisional record to the persistence mechanism.
+      The only information missing is the call point completion time, which is supplied by the leave handler.
+      The proc enter handler records its computation stop time and dispatches a record of its own work out of band
+      so as to prevent infinite recursion on proc entry.
+    }
+
+    \subsubsection{Leave Handler}{
+      The leave handler first captures the proc computation end time. It then computes the requisite hashes and
+      dispatches a lambda containing the partial record to the persistence mechanism. Like the proc enter handler,
+      it keeps its own record of computation time that it sends out of band.
+    }
+  }
+
+  \subsection{Finalization}{
   }
 }
 
