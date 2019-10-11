@@ -387,8 +387,8 @@
     for information transfer, the finalization is done as a bulk insert query from ephemeral to final storage.
     Upon entry into the finalization procedure, the current clock is memoized and all records with non-null exit
     timestamps prior to the memoized cutoff are moved into final storage and deleted from ephemeral storage.
-    Since the ephemeral storage has no need to maintain completed call records for update, this keeps the ephemeral
-    storage size from growing without bound and improves the speed of update queries since there is fewer records
+    The ephemeral storage has no need to maintain completed call records for update, and so this keeps the ephemeral
+    storage size from growing without bound and improves the speed of update queries since there are fewer records
     to search.
 
     When the finalization procedure \texttt{::turtles::capture\_the\_turtles} is invoked,
