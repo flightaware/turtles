@@ -312,7 +312,7 @@
         This had the additional benefit of saving the memory required for the stack at the cost of extra compute time.
         The stack level and source line were included in consideration of cases where a caller calls the callee
         numerous times in its body. The multi-threaded case has not been tested since it requires an
-        initialization in each thread, and it is expected that there will be bugs in the implementation
+        initialization of TURTLES in each thread, and it is expected that there will be bugs in the implementation
         under those conditions, especially with respect to contention for the call record final storage.
       }
     }
@@ -330,9 +330,74 @@
       dispatches a lambda containing the partial record to the persistence mechanism. Like the proc enter handler,
       it keeps its own record of computation time that it sends out of band.
     }
+    \subsubsection{Call Record Persistence}{
+      Under the multi-threaded scheduling mode, the recorder thread receives lambda messages to execute.
+      Call records messages come from the enter and leave handlers associated with the defined procs
+      whether for the procs under observation or the handlers' own out-of-band execution metrics.
+      For the staged case, a scheduler thread periodically sends lambdas instructing the recorder to
+      flush unfinalized call records from ephemeral to final storage.
+
+      Under the event-loop scheduling mode, the scheduler is implemented as a self-recurring proc
+      availing itself of Tcl's \texttt{after} mechanism. This requires the main program to enter the
+      event loop at some point in time. Call records are immediately written to ephemeral storage
+      in staged commit and final storage in direct commit mode.
+
+      \paragraph{Fork Safety}{
+        The MMHF program operates by performing some initialization and then forking multiple children of itself
+        across which the stream processing load is balanced. Most of the procs to be instrumented are defined
+        prior to the fork. In order to enable the TURTLES library to cross the fork boundary, the aforementioned
+        enter handler on \texttt{Tclx::fork} finalizes whatever call records have been incurred during execution,
+        shuts down the recorder and scheduler threads or event loop jobs and closes the fork parent's final storage.
+
+        The trace handlers as occupants of memory remain after the fork, and so the leave handler on \texttt{Tclx::fork}
+        determines the fork child's process ID as well as the parent's for use in reconstructing the call record storage.
+        The parent SQLite database is copied to a new child database, and since both databases are deterministically
+        named by a convention that includes the process ID, conflicts should be minimized. Both children and parent
+        reload their databases post-fork and restart the recorder and scheduler workers as applicable.
+
+        There is a small window for lacunae in the call record history at the time of fork, but this is deemed
+        an acceptable loss in light of the benefit that the implicit fork safety provides. Every child should have
+        roughly the same information as the parent and its siblings pre-fork, subject to spawn order. This adheres
+        to the copy semantics of forking at least by reasonable approximation if not exactly.
+
+        Note that for long running programs, there is a potential for conflict if the parent process periodically
+        refreshes the children and the operating system crosses the max PID boundary. In this case, a child may open
+        a database that previously belonged to another child from the past. This is not a problem so long as their
+        is a parent-child or sibling relationship between the processes that share the PID. The uniqueness of the
+        trace ID for each call record is determined by both time (epoch execution microsecond stamps) and space
+        (thread ID, call stack) should make post-hoc merging of all the associated SQLite databases trivial
+        provided that the merge ignores conflicts, which most likely will arise from pre-fork records and the
+        negligible probability of hash collisions in most use cases. Making multiple simultaneous runs of separate
+        programs instrumented by TURTLES without specifying a unique database filename prefix per program
+        will yield the expected and completely avoidable results.
+      }
+      \paragraph{Thread Safety}{
+        Because the Tcl threading model defines a separate Tcl interpreter per thread, capturing call records
+        in a multi-threaded scenario requires initialization at the start of each participating thread.
+        This is not presently recommended since the behavior is untested, and as was previously alluded, it will
+        probably result in contention for the call record database and possibly deadlock.
+
+        The snippet message model used here incurs a substantial amount of overhead and requires that call record information
+        be fully evaluated to literals since the threads do not share state. Thread state variables (TSVs) were
+        eschewed to avoid the complexity of locking and state maintenance in favor of a stateless message-passing scheme.
+      }
+    }
   }
 
   \subsection{Finalization}{
+    Finalization of call record storage is a simple process. Since SQLite permits attaching extraneous databases
+    for information transfer, the finalization is done as a bulk insert query from ephemeral to final storage.
+    Upon entry into the finalization procedure, the current clock is memoized and all records with non-null exit
+    timestamps prior to the memoized cutoff are moved into final storage and deleted from ephemeral storage.
+    Since the ephemeral storage has no need to maintain completed call records for update, this keeps the ephemeral
+    storage size from growing without bound and improves the speed of update queries since there is fewer records
+    to search.
+
+    When the program nears completion and the finalization procedure `::turtles::capture\_the\_turtles` is invoked,
+    the applicable recorder and scheduler workers are stopped, and a final query moving call records
+    from ephemeral storage to final storage is executed, including all records regardless of whether they had
+    finished execution or not by the time the collection was ended.
+  }
   }
 }
 
