@@ -393,7 +393,7 @@
     storage size from growing without bound and improves the speed of update queries since there is fewer records
     to search.
 
-    When the program nears completion and the finalization procedure `::turtles::capture\_the\_turtles` is invoked,
+    When the finalization procedure \texttt{::turtles::capture\_the\_turtles} is invoked,
     the applicable recorder and scheduler workers are stopped, and a final query moving call records
     from ephemeral storage to final storage is executed, including all records regardless of whether they had
     finished execution or not by the time the collection was ended.
