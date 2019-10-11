@@ -1,4 +1,6 @@
 #!/usr/bin/env tclsh
+package require turtles
+::turtles::release_the_turtles ::argv
 
 package require Tcl 8.5 8.6
 package require sqlite3
@@ -114,3 +116,5 @@ dict for {i_u u} $clusters {
 dict for {i_g g} $groups {
 	puts "$i_g \{$g\}"
 }
+
+::turtles::capture_the_turtles
