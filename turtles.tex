@@ -396,6 +396,32 @@
     from ephemeral storage to final storage is executed, including all records regardless of whether they had
     finished execution or not by the time the collection was ended.
   }
+
+  \subsection{Analysis}{
+    Considering the original ticket that spawned this project suggested the Highly Connected Subgraphs (HCS) algorithm\autocite{HCS}
+    for clustering calls by connectivity, it should have been apparent \emph{ab initio} that attempting to implement
+    GHS in a $k$-machine model implemented in Tcl threads was a bit overkill. Constructing a Tcl thread $k$-machine
+    model would be an interesting project in its own right but falls outside the scope of this work. The work-in-progress
+    is left in the repository under the \texttt{::turtles::bale} and \texttt{::turtles::kmm} namespaces as an
+    interesting if incomplete attempt at realizing the algorithm. The implementation borrows heavily from work
+    done by the author\autocite{ghscoco} on a connected components project using MPI\autocites{mpi}{openmpi} as the underlying framework.
+
+    The BFS flooding implementation is implemented in the standalone \texttt{cluster.tcl} program, which loads
+    the call records from the SQLite database that served as final storage for a given run into a weighted graph
+    implemented as a nested set of dictionaries. The weights in the graph are the number of calls made by a caller
+    to its callee.
+
+    A \texttt{-cutoff} command-line argument informs the program to ignore edges below a certain weight.
+    An \texttt{-undirected} flag informs the program to consider the edge between caller and callee in both
+    directions. By default, it only adds edges radiating from the caller. In many cases, radiating edges from
+    the callee as well will speciously connect procs by common primitives like \texttt{clock}. While this is useful
+    for identifying procs that may need to be placed in a common base pacakge, it may not provide much benefit
+    for classifying procs according to behavior or subject.
+
+    The level of verbosity in output may be varied at the command line, as well. By providing an integer argument
+    to the \texttt{-verbosity} option, a user will be given access to increasingly descriptive debug output.
+    Verbosity level greater than 2 dumps the final graph in its entirety. By default, the program only prints
+    each group idenitifer followed by the proc identifier associated with that group.
   }
 }
 
