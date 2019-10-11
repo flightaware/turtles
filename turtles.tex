@@ -3,7 +3,13 @@
 \addbibresource{turtles.bib}
 \AtBeginBibliography{\setcounter{maxnames}{5}\setcounter{minnames}{5}}
 \usepackage{geometry}[tmargin=1in,bmargin=1.5in,lmargin=1in,rmargin=1in]
+\usepackage{longtable}
 \pagenumbering{gobble}
+\usepackage{chngcntr}
+\counterwithin{table}{subsection}
+\usepackage{subcaption}
+\usepackage{tabularx}
+\usepackage{booktabs}
 
 \title{Release the TURTLES\\
   \large{A Pure Tcl Interface to Dynamic Proc Tracing}}
@@ -426,7 +432,177 @@
 }
 
 \section{Experiments}{
-  TBD
+  In order to establish the effectiveness of the TURTLES library in yielding useful information and reasonable clustering,
+  a few experiments were undertaken in concert with development efforts. The first level of experimentation and validation
+  occurred with the development of the the TURTLES test suite which established basic ground truths for fundamental units
+  and toy integration examples. Beyond the contrived scenarios covered by the test suite, the TURTLES library was incorporated into
+  several non-trivial programs. These included the author's implementation of Slowbird, a programming exercise used
+  in FlightAware's onboarding process, and the MMHF program which espoused the project and introduced the challenge of
+  crossing fork boundaries.
+
+  \subsection{The TURTLES Test Suite}{
+    At the most basic level, a set of unit, functional,
+    and integration tests was devised to be run under the \texttt{test-package} make target. This provided coverage of
+    the fundamental units which comprised the TURTLES library and included tests on the hashing function, options processing,
+    persistence mechanisms, along with smoke tests against simple toy programs for validating behavior when faced with
+    complications such as recursively nested proc calls and fork boundaries. The reader is encouraged to review the test
+    suite for the library to see particular examples of edge cases that led to revisions in the design.
+
+    The fork safety mechanisms were satisfactorily tested on FreeBSD and Linux, but the support for forking in Tcl on
+    MacOS X has at least one outstanding issues that has remained open for years\autocite{c4e230f29b}. The age of this bug and Apple's
+    inexorable march toward locking down development on MacOS X (cf. the release notes for Catalina\autocite{scriptsonmac})
+    leave little hope for improvement in this regard. Consequently, the forking cases are skipped when building
+    and installing on MacOS X, and users of TURTLES should take this into consideration during development.
+  }
+
+  \subsection{Non-Trivial Programs}{
+
+    \subsection{Slowbird}{
+      Slowbird is a simple Tcl event loop program that consumes a stream of tab-separated value (TSV) input of flight
+      positions, computes stream statistics, and presents the information in the form of an output log to the console.
+
+      Over multiple runs, the clustering algorithm produces consistent component counts within the classes of undirected
+      or directed graphs as demonstrated in Table~\ref{tbl:slowbirdclcts}.
+      {\footnotesize
+      \begin{longtable}{c c c}
+        Edge Class & Slowbird PID & Clusters \\
+        \endhead
+        \hline
+        undirected & 84717  & 34 \\
+        undirected & 93015  & 33 \\
+        undirected & 28944  & 34 \\
+        undirected & 4117  & 33 \\
+        undirected & 28244  & 33 \\
+        \hline
+        directed & 28944  & 49 \\
+        directed & 4117  & 47 \\
+        directed & 28244  & 48 \\
+        directed & 93015  & 48 \\
+        directed & 84717  & 47 \\
+        \hline
+        \caption{Slowbird Cluster Counts}
+        \label{tbl:slowbirdclcts}
+      \end{longtable}}
+      As expected, the directed graph is more fragmented without the unifying effect of common callees. However, it provides
+      a clearer delineation of separate call stack descent paths. Common functions are associated with the cluster of first contact.
+
+      Comparing the directed and undirected clusterings for a given run illustrates the high connectivity of common utility functions.
+      The standard \texttt{::clock} proc offers the most striking example of this in Table~\ref{tbl:slowbirdmbrcts}.
+        \begin{table}[htb]
+          \begin{subtable}[t]{0.48\textwidth}
+            {\footnotesize
+            \begin{tabular}[t]{r|c}
+              \toprule
+              Cluster Root & Members \\
+              \midrule
+              ::CACHE\_PROC\_CHILD  & 1 \\
+              ::CACHE\_PROC\_PAGE  & 1 \\
+              ::UniversalDaystreamClient  & 2 \\
+              ::\_\_critcl\_load\_\_  & 3 \\
+              ::\_create\_cached\_proc  & 1 \\
+              ::alias\_flavor  & 1 \\
+              ::another\_parsed\_flavor  & 1 \\
+              ::auto\_import  & 1 \\
+              ::clock  & 1 \\
+              ::fa\_cat::basecat  & 1 \\
+              ::fa\_cat::catalog\_entries  & 1 \\
+              ::fa\_cat::setcat  & 1 \\
+              ::fa\_loadconfig  & 1 \\
+              ::fa\_loadconfig\_pattern  & 1 \\
+              ::fa\_logger\_init  & 1 \\
+              ::handle\_message  & 1 \\
+              ::http::init  & 1 \\
+              ::ip::intToString  & 2 \\
+              ::ip::maskToInt  & 1 \\
+              ::ip::version  & 4 \\
+              ::itcl::\_find\_init  & 1 \\
+              ::log\_stats\_worker  & 2 \\
+              ::msgcat::GetPreferences  & 1 \\
+              ::msgcat::Init  & 1 \\
+              ::msgcat::mcload  & 1 \\
+              ::msgcat::mcmset  & 1 \\
+              ::msgcat::mcpackageconfig  & 2 \\
+              ::msgcat::mcpackagelocale  & 4 \\
+              ::msgcat::mcset  & 1 \\
+              ::setup\_console  & 1 \\
+              ::sha1::KnownImplementations  & 1 \\
+              ::sha1::LoadAccelerator  & 1 \\
+              ::sha1::SwitchTo  & 1 \\
+              ::sha2::KnownImplementations  & 1 \\
+              ::sha2::LoadAccelerator  & 1 \\
+              ::sha2::SwitchTo  & 1 \\
+              ::shuffle\_list  & 1 \\
+              ::struct::set::KnownImplementations  & 1 \\
+              ::struct::set::LoadAccelerator  & 1 \\
+              ::struct::set::SwitchTo  & 1 \\
+              ::tcl::clock::InitTZData  & 1 \\
+              ::tcl::clock::Initialize  & 1 \\
+              ::tcl::clock::LocalizeFormat  & 1 \\
+              ::tcl::clock::SetupTimeZone  & 4 \\
+              ::tcl::clock::mcMerge  & 1 \\
+              ::tcl::clock::mcget  &  3 \\
+              ::turtles::on\_proc\_enter  & 1 \\
+              ::turtles::on\_proc\_leave  & 1 \\
+              \bottomrule
+            \end{tabular}}
+            \caption{Directed}
+          \end{subtable}
+          \begin{subtable}[t]{0.48\textwidth}
+            {\footnotesize
+            \begin{tabular}[t]{r|c}
+              \toprule
+              Cluster Root & Members \\
+              \midrule
+              ::\_\_critcl\_load\_\_  & 3 \\
+              ::\_create\_cached\_proc  & 3 \\
+              ::alias\_flavor  & 2 \\
+              ::auto\_import  & 1 \\
+              ::clock  & 21 \\
+              ::fa\_cat::basecat & 1 \\
+              ::fa\_cat::catalog\_entries  & 1 \\
+              ::fa\_cat::setcat  & 1 \\
+              ::fa\_loadconfig\_pattern  &  4 \\
+              ::fa\_logger\_init  & 1 \\
+              ::handle\_message  & 1 \\
+              ::http::init  & 1 \\
+              ::ip::ToString  & 2 \\
+              ::ip::maskToInt  & 1 \\
+              ::ip::version  &  4 \\
+              ::itcl::\_find\_init  & 1 \\
+              ::msgcat::mcmset  & 1 \\
+              ::msgcat::mcset  & 1 \\
+              ::setup\_console  & 1 \\
+              ::sha1::KnownImplementations  & 1 \\
+              ::sha1::LoadAccelerator  & 1 \\
+              ::sha1::SwitchTo  & 1 \\
+              ::sha2::KnownImplementations  & 1 \\
+              ::sha2::LoadAccelerator  & 1 \\
+              ::sha2::SwitchTo  & 1 \\
+              ::shuffle\_list  & 1 \\
+              ::struct::set::KnownImplementations  & 1 \\
+              ::struct::set::LoadAccelerator  & 1 \\
+              ::struct::set::SwitchTo  & 1 \\
+              ::tcl::clock::InitTZData  & 1 \\
+              ::tcl::clock::Initialize  & 1 \\
+              ::turtles::on\_proc\_enter  & 1 \\
+              ::turtles::on\_proc\_leave  & 1 \\
+              \bottomrule
+            \end{tabular}}
+            \caption{Undirected}
+          \end{subtable}
+          \caption{Slowbird Cluster Member Counts}
+          \label{tbl:slowbirdmbrcts}
+      \end{table}
+    }
+
+    \subsection{Multi-Machine HyperFeed (MMHF)}{
+      Multi-Machine HyperFeed is one of the core backend services used by FlightAware for analyzing, collating, and producing
+      flight data for use by FlightAware's downstream consumers. The single-machine version of the program was presented
+      by Zach Conn in 2016\autocite{hyperfeed}, and the multi-machine version expands on that original work.
+    }
+
+  }
+
 }
 
 \section{Conclusions}{
