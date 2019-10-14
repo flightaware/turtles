@@ -113,8 +113,15 @@ dict for {i_u u} $clusters {
 	dict lappend groups $group_name $proc_name
 }
 
+set histogram [dict create]
 dict for {i_g g} $groups {
+	dict incr histogram [llength $g]
 	puts "$i_g \{$g\}"
 }
 
+if { $params(verbosity) >= 1 } {
+	foreach k [lsort [dict keys $histogram]] {
+		puts "HIST: $k [dict get $histogram $k]"
+	}
+}
 ::turtles::capture_the_turtles
