@@ -592,7 +592,93 @@
           \end{subtable}
           \caption{Slowbird Cluster Member Counts}
           \label{tbl:slowbirdmbrcts}
-      \end{table}
+        \end{table}
+
+        An sample execution timing by callee for the Slowbird run with PID 4117 is given in Table~\ref{tbl:slowbirdt}.
+        This is available in the finalized SQLite database through the default view \texttt{calls\_by\_callee}.
+        Execution timings are inclusive of subcallees since they are measured from the bookends of proc
+        entry and exit. As might be expected, the TURTLES enter and leave handlers incur a fair amount of overhead.
+        The primary method invoked from the root of the Tcl event loop has the largest cumulative time of the
+        original Slowbird code. Looking at the average execution times and relative frequencies, it appears
+        that \texttt{::tcl::clock::mcget} and \texttt{::msgcat::mcpackagelocale} could stand to have their performance
+        improved through refactoring if possible.
+
+        \begin{longtable}{l r r r}
+          \toprule
+          Callee & Calls & $t_{total}$ ($\mu$s) & $t_{avg}$ ($\mu$s) \\
+          \midrule \\
+          \endhead
+          ::turtles::on\_proc\_enter & 25948 & 4170237 & 160 \\
+          ::slowbird::handle\_message & 22875 & 3713416 & 162 \\
+          ::turtles::on\_proc\_leave & 25944 & 3083702 & 118 \\
+          ::clock & 549 & 270313 & 492 \\
+          ::tcl::clock::mcget & 29 & 210344 & 7253 \\
+          ::fa\_cat::setcat & 1425 & 182328 & 127 \\
+          ::msgcat::mcpackagelocale & 54 & 137347 & 2543 \\
+          ::msgcat::Load & 28 & 90415 & 3229 \\
+          ::another\_parsed\_flavor & 148 & 78605 & 531 \\
+          ::tcl::clock::mcMerge & 72 & 38777 & 538 \\
+          ::msgcat::mcset & 229 & 26636 & 116 \\
+          ::alias\_flavor & 171 & 22923 & 134 \\
+          ::slowbird::logger & 3 & 11966 & 3988 \\
+          ::UniversalDaystreamClient & 1 & 11364 & 11364 \\
+          ::slowbird::log\_stats & 3 & 10718 & 3572 \\
+          ::msgcat::GetPreferences & 81 & 10301 & 127 \\
+          ::tcl::clock::SetupTimeZone & 2 & 8934 & 4467 \\
+          ::ip::intToString & 33 & 7345 & 222 \\
+          ::tcl::clock::ParsePosixTimeZone & 1 & 5441 & 5441 \\
+          ::CACHE\_PROC\_PAGE & 6 & 5057 & 842 \\
+          ::msgcat::mclocale & 29 & 4794 & 165 \\
+          ::fa\_cat::catalog\_entries & 24 & 3890 & 162 \\
+          ::msgcat::Invoke & 29 & 3812 & 131 \\
+          ::msgcat::ListComplement & 27 & 3425 & 126 \\
+          ::fa\_loadconfig & 3 & 2956 & 985 \\
+          ::\_create\_cached\_proc & 7 & 2734 & 390 \\
+          ::msgcat::mcpackageconfig & 4 & 2459 & 614 \\
+          ::load\_daystream\_flavor & 1 & 1921 & 1921 \\
+          ::msgcat::Init & 1 & 1769 & 1769 \\
+          ::tcl::clock::LocalizeFormat & 4 & 1733 & 433 \\
+          ::ip::version & 1 & 1511 & 1511 \\
+          ::ip::ToString & 33 & 1504 & 45 \\
+          ::msgcat::mcload & 1 & 1495 & 1495 \\
+          ::ip::maskToInt & 33 & 1363 & 41 \\
+          ::fa\_loadconfig\_pattern & 4 & 1123 & 280 \\
+          ::auto\_import & 6 & 956 & 159 \\
+          ::CACHE\_PROC\_CHILD & 1 & 757 & 757 \\
+          ::critcl::runtime::MapPlatform & 1 & 726 & 726 \\
+          ::ip::IPv4? & 1 & 616 & 616 \\
+          ::http::init & 1 & 545 & 545 \\
+          ::tcl::clock::LoadTimeZoneFile & 1 & 527 & 527 \\
+          ::msgcat::LoadAll & 1 & 346 & 346 \\
+          ::slowbird::setup\_console & 1 & 335 & 335 \\
+          ::platform::generic & 1 & 312 & 312 \\
+          ::shuffle\_list & 1 & 307 & 307 \\
+          ::fa\_cat::basecat & 2 & 287 & 143 \\
+          ::tcl::clock::LoadZoneinfoFile & 1 & 251 & 251 \\
+          ::sha1::LoadAccelerator & 1 & 226 & 226 \\
+          ::ip::IPv6? & 1 & 212 & 212 \\
+          ::fa\_logger\_init & 1 & 205 & 205 \\
+          ::ip::Normalize4 & 1 & 192 & 192 \\
+          ::sha1::SwitchTo & 1 & 185 & 185 \\
+          ::sha2::KnownImplementations & 1 & 178 & 178 \\
+          ::tcl::clock::InitTZData & 1 & 169 & 169 \\
+          ::msgcat::PackageLocales & 2 & 133 & 66 \\
+          ::sha1::KnownImplementations & 1 & 129 & 129 \\
+          ::sha2::SwitchTo & 1 & 127 & 127 \\
+          ::msgcat::mcmset & 1 & 117 & 117 \\
+          ::struct::set::LoadAccelerator & 1 & 117 & 117 \\
+          ::sha2::LoadAccelerator & 1 & 100 & 100 \\
+          ::struct::set::SwitchTo & 1 & 100 & 100 \\
+          ::struct::set::KnownImplementations & 1 & 47 & 47 \\
+          ::\_\_critcl\_load\_\_ & 1 &  &  \\
+          ::itcl::\_find\_init & 1 &  &  \\
+          ::tcl::clock::Initialize & 1 &  & \\
+          \bottomrule
+          \caption{Slowbird Callee Timing}
+          \label{tbl:slowbirdt}
+        \end{longtable}
+        According to another default view, \texttt{unused\_procs}, 779 other procs were defined but never called.
+
     }
 
     \subsection{Multi-Machine HyperFeed (MMHF)}{
