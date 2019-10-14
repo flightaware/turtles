@@ -10,6 +10,7 @@
 \usepackage{subcaption}
 \usepackage{tabularx}
 \usepackage{booktabs}
+\usepackage{float}
 \usepackage{pgfplots}
 \usepackage{tikz}
 \usetikzlibrary{patterns}
@@ -112,8 +113,8 @@
     Design section with specific details about how the design was realized.
     The Experiments section exhibits the results of employing the TURTLES
     project on both toy examples and on the larger MMHF project.
-    In the Conclusions section, the experimental results are analyzed
-    to evaluate the performance and output of the TURTLES project.
+    In the Conclusions section, the experimental results and the development cycle
+    of the TURTLES project are evaluated along with some aspects of the Tcl learning curve.
     Finally, in the Future Work section, some avenues for ongoing research
     are considered in light of the aforementioned conclusions with the goal of
     improving the TURTLES project so as to encourage adoption and enhance
@@ -177,7 +178,7 @@
   }
   \subsection{Finalization}{
     Ending data collection is achieved by a designated proc which disables
-    all the relevant trace handlers along with the handler on the \texttt{proc}command.
+    all the relevant trace handlers along with the handler on the \texttt{proc} command.
     If collection was operating in staged mode, the ephemeral storage is flushed
     to the final storage.
   }
@@ -217,16 +218,15 @@
   }
 
   \subsection{Parameterization}{
-    A set of command-line arguments are used to parameterize the call record colletion
-    so that the user may specify parameters at runtime without having to modify a program's source.
+    A set of command-line arguments are used to parameterize the call record collection at runtime.
     The command-line parameters themselves are bracketed by the literals \texttt{+TURTLES} and \texttt{-TURTLES}
-    to distiguish arguments meant for the TURTLES library from arguments to the program.
-    The arguments to TURTLES may interspersed anywhere in the command line provided that
+    to distiguish TURTLES parameters from program arguments.
+    The arguments to TURTLES may be interspersed anywhere in the command line provided that
     they are appropriately bracketed.
 
-    During initialization, \texttt{::turtles::options::consume} proc the name reference of an
+    During initialization, \texttt{::turtles::options::consume} takes the name reference of an
     \texttt{argv}-style string and destructively consumes the TURTLES parameters from that variable.
-    Therefore, it is  strongly recommended to place the initialization call to
+    Therefore, it is strongly recommended to place the initialization call to
     \texttt{::turtles::release\_the\_turtles} as close to the main entry point of the target program
     as possible, preferably before the program's own command-line argument parsing.
 
@@ -258,14 +258,14 @@
       finalization in staged commit mode. Under multithreaded mode, specified by \texttt{mt},
       the TURTLES library launches two separate Tcl threads, i.e., a recorder and a scheduler.
       The recorder handles all call record storage updates sequentially according to its thread
-      lambda message queue including finalization operations. The scheduler periodically sends
-      finalizing lambdas to be processed by the recorder according to the configured interval.
-      Under event-loop mode, specified by \texttt{ev}, the TURTLES library launchs a self-recurring
+      snippet message queue including finalization operations. The scheduler periodically sends
+      finalizing snippets to be processed by the recorder according to the configured interval.
+      Under event-loop mode, specified by \texttt{ev}, the TURTLES library launches a self-recurring
       after job into the main Tcl event loop. This mode assumes that the event loop is entered
       subsequently after TURTLES initialization.
     }
     \subsubsection{\texttt{-dbPath <directory> -dbPrefix <string>}}{
-      The \texttt{-dbPath} option specifies the directory path only for the SQLite database serving
+      The \texttt{-dbPath} option specifies the directory path for the SQLite database serving
       as final storage. The actual database filename is specified by convention
       informed by the \texttt{-dbPrefix} option. The full filepath is
       determined as \texttt{<dbPath>/<dbPrefix>-<pid>.db} where \texttt{<pid>}
@@ -325,42 +325,42 @@
         This had the additional benefit of saving the memory required for the stack at the cost of extra compute time.
         The stack level and source line were included in consideration of cases where a caller calls the callee
         numerous times in its body. The multi-threaded case has not been tested since it requires an
-        initialization of TURTLES in each thread, and it is expected that there will be bugs in the implementation
-        under those conditions, especially with respect to contention for the call record final storage.
+        initialization of TURTLES in each thread, and it is expected bugs will surface under those conditions,
+        especially with respect to contention for the call record final storage.
       }
     }
 
     \subsubsection{Enter Handler}{
       The proc enter handler records its own computation start time, computes the requisite hashes for the call record,
-      records a proc start time, and dispatches a lambda containing the provisional record to the persistence mechanism.
+      records a proc start time, and dispatches a snippet containing the provisional record to the persistence mechanism.
       The only information missing is the call point completion time, which is supplied by the leave handler.
-      The proc enter handler records its computation stop time and dispatches a record of its own work out of band
+      The proc enter handler records its computation stop time and dispatches a record of its own work out-of-band
       so as to prevent infinite recursion on proc entry.
     }
 
     \subsubsection{Leave Handler}{
       The leave handler first captures the proc computation end time. It then computes the requisite hashes and
-      dispatches a lambda containing the partial record to the persistence mechanism. Like the proc enter handler,
-      it keeps its own record of computation time that it sends out of band.
+      dispatches a snippet containing the partial record to the persistence mechanism. Like the proc enter handler,
+      it keeps its own record of computation time that it sends out-of-band.
     }
     \subsubsection{Call Record Persistence}{
-      Under the multi-threaded scheduling mode, the recorder thread receives lambda messages to execute.
-      Call records messages come from the enter and leave handlers associated with the defined procs
+      Under the multi-threaded scheduling mode, the recorder thread receives snippet messages to execute.
+      Call record messages come from the enter and leave handlers associated with the defined procs
       whether for the procs under observation or the handlers' own out-of-band execution metrics.
-      For the staged case, a scheduler thread periodically sends lambdas instructing the recorder to
+      For the staged case, a scheduler thread periodically sends snippets instructing the recorder to
       flush unfinalized call records from ephemeral to final storage.
 
       Under the event-loop scheduling mode, the scheduler is implemented as a self-recurring proc
       availing itself of Tcl's \texttt{after} mechanism. This requires the main program to enter the
       event loop at some point in time. Call records are immediately written to ephemeral storage
-      in staged commit and final storage in direct commit mode.
+      in staged commit mode and final storage in direct commit mode.
 
       \paragraph{Fork Safety}{
         The MMHF program operates by performing some initialization and then forking multiple children of itself
         across which the stream processing load is balanced. Most of the procs to be instrumented are defined
         prior to the fork. In order to enable the TURTLES library to cross the fork boundary, the aforementioned
         enter handler on \texttt{Tclx::fork} finalizes whatever call records have been incurred during execution,
-        shuts down the recorder and scheduler threads or event loop jobs and closes the fork parent's final storage.
+        shuts down the recorder and scheduler threads or event loop jobs, and closes the fork parent's final storage.
 
         The trace handlers as occupants of memory remain after the fork, and so the leave handler on \texttt{Tclx::fork}
         determines the fork child's process ID as well as the parent's for use in reconstructing the call record storage.
@@ -375,14 +375,14 @@
 
         Note that for long running programs, there is a potential for conflict if the parent process periodically
         refreshes the children and the operating system crosses the max PID boundary. In this case, a child may open
-        a database that previously belonged to another child from the past. This is not a problem so long as their
+        a database that previously belonged to another child from the past. This is not a problem so long as there
         is a parent-child or sibling relationship between the processes that share the PID. The uniqueness of the
         trace ID for each call record is determined by both time (epoch execution microsecond stamps) and space
-        (thread ID, call stack) should make post-hoc merging of all the associated SQLite databases trivial
-        provided that the merge ignores conflicts, which most likely will arise from pre-fork records and the
-        negligible probability of hash collisions in most use cases. Making multiple simultaneous runs of separate
+        (thread ID, call stack). This should make post-hoc merging of all the associated SQLite databases trivial
+        provided that the merge ignores conflicts, which most likely will arise in most use cases from pre-fork records and the
+        negligible probability of hash collision. Simultaneous runs of separate
         programs instrumented by TURTLES without specifying a unique database filename prefix per program
-        will yield the expected and completely avoidable results.
+        will yield undesirable results.
       }
       \paragraph{Thread Safety}{
         Because the Tcl threading model defines a separate Tcl interpreter per thread, capturing call records
@@ -430,7 +430,7 @@
     An \texttt{-undirected} flag informs the program to consider the edge between caller and callee in both
     directions. By default, it only adds edges radiating from the caller. In many cases, radiating edges from
     the callee as well will speciously connect procs by common primitives like \texttt{clock}. While this is useful
-    for identifying procs that may need to be placed in a common base pacakge, it may not provide much benefit
+    for identifying procs that may need to be placed in a common base package, it may not provide much benefit
     for classifying procs according to behavior or subject.
 
     The level of verbosity in output may be varied at the command line, as well. By providing an integer argument
@@ -442,33 +442,24 @@
 
 \section{Experiments}{
   In order to establish the effectiveness of the TURTLES library in yielding useful information and reasonable clustering,
-  a few experiments were undertaken in concert with development efforts. The first level of experimentation and validation
-  occurred with the development of the the TURTLES test suite which established basic ground truths for fundamental units
-  and toy integration examples. Beyond the contrived scenarios covered by the test suite, the TURTLES library was incorporated into
-  several non-trivial programs. These included the author's implementation of Slowbird, a programming exercise used
-  in FlightAware's onboarding process, and the MMHF program which espoused the project and introduced the challenge of
+  a few experiments were undertaken in concert with development efforts. The experiments began with the TURTLES test suite
+  to establish ground truths for fundamental units and toy integration examples. Beyond these contrived scenarios, the TURTLES
+  library was incorporated into a couple of non-trivial programs. These included the author's implementation of Slowbird, a
+  programming exercise used in FlightAware's onboarding process, and the MMHF program which introduced the challenge of
   crossing fork boundaries.
 
   \subsection{The TURTLES Test Suite}{
-    At the most basic level, a set of unit, functional,
-    and integration tests was devised to be run under the \texttt{test-package} make target. This provided coverage of
-    the fundamental units which comprised the TURTLES library and included tests on the hashing function, options processing,
-    persistence mechanisms, along with smoke tests against simple toy programs for validating behavior when faced with
-    complications such as recursively nested proc calls and fork boundaries. The reader is encouraged to review the test
+    A set of unit, functional, and integration tests was devised to be run under the \texttt{test-package} make target and
+    included tests on the hashing function, options processing, persistence mechanisms, and toy program smoke tests
+    for recursively nested proc calls and fork boundaries. The reader is encouraged to review the test
     suite for the library to see particular examples of edge cases that led to revisions in the design.
-
-    The fork safety mechanisms were satisfactorily tested on FreeBSD and Linux, but the support for forking in Tcl on
-    MacOS X has at least one outstanding issue that has remained open for years\autocite{c4e230f29b}. The age of this bug and Apple's
-    inexorable march toward locking down development on MacOS X (cf. the release notes for Catalina\autocite{scriptsonmac})
-    leave little hope for improvement in this regard. Consequently, the forking cases are skipped when building
-    and installing on MacOS X, and users of TURTLES should take this into consideration during development.
   }
 
   \subsection{Non-Trivial Programs}{
 
     \subsubsection{Slowbird}{
       Slowbird is a simple Tcl event loop program that consumes a stream of tab-separated value (TSV) input of flight
-      positions, computes stream statistics, and presents the information in the form of an output log to the console.
+      positions, computes stream statistics, and presents the information to the console.
 
       Over multiple runs, the clustering algorithm produces consistent component counts within the classes of undirected
       or directed graphs as demonstrated in Table~\ref{tbl:slowbirdclcts}.
@@ -497,7 +488,7 @@
 
       Comparing the directed and undirected clusterings for a given run illustrates the high connectivity of common utility functions.
       The standard \texttt{::clock} proc offers the most striking example of this in Table~\ref{tbl:slowbirdmbrcts}.
-        \begin{table}[htb]
+        \begin{table}[!htbp]
           \begin{subtable}[t]{0.48\textwidth}
             {\footnotesize
             \begin{tabular}[t]{r|c}
@@ -603,15 +594,12 @@
           \label{tbl:slowbirdmbrcts}
         \end{table}
 
-        An sample execution timing by callee for the Slowbird run with PID 4117 is given in Table~\ref{tbl:slowbirdt}.
-        This is available in the finalized SQLite database through the default view \texttt{calls\_by\_callee}.
-        Execution timings are inclusive of subcallees since they are measured from the bookends of proc
-        entry and exit. As might be expected, the TURTLES enter and leave handlers incur a fair amount of overhead.
+        As might be expected, the TURTLES enter and leave handlers incur a fair amount of overhead.
         The primary method invoked from the root of the Tcl event loop has the largest cumulative time of the
-        original Slowbird code. Looking at the average execution times and relative frequencies, it appears
-        that \texttt{::tcl::clock::mcget} and \texttt{::msgcat::mcpackagelocale} could stand to have their performance
-        improved through refactoring if possible.
-
+        original Slowbird code. A sample execution timing by callee for the Slowbird run with PID 4117 is given in Table~\ref{tbl:slowbirdt}
+        with calls accruing under 10 ms of execution omitted for space.
+        This is available from final storage through the default view \texttt{calls\_by\_callee}.
+        
         {\footnotesize
         \begin{longtable}{l r r r}
           \toprule
@@ -634,55 +622,7 @@
           ::UniversalDaystreamClient & 1 & 11364 & 11364 \\
           ::slowbird::log\_stats & 3 & 10718 & 3572 \\
           ::msgcat::GetPreferences & 81 & 10301 & 127 \\
-          ::tcl::clock::SetupTimeZone & 2 & 8934 & 4467 \\
-          ::ip::intToString & 33 & 7345 & 222 \\
-          ::tcl::clock::ParsePosixTimeZone & 1 & 5441 & 5441 \\
-          ::CACHE\_PROC\_PAGE & 6 & 5057 & 842 \\
-          ::msgcat::mclocale & 29 & 4794 & 165 \\
-          ::fa\_cat::catalog\_entries & 24 & 3890 & 162 \\
-          ::msgcat::Invoke & 29 & 3812 & 131 \\
-          ::msgcat::ListComplement & 27 & 3425 & 126 \\
-          ::fa\_loadconfig & 3 & 2956 & 985 \\
-          ::\_create\_cached\_proc & 7 & 2734 & 390 \\
-          ::msgcat::mcpackageconfig & 4 & 2459 & 614 \\
-          ::load\_daystream\_flavor & 1 & 1921 & 1921 \\
-          ::msgcat::Init & 1 & 1769 & 1769 \\
-          ::tcl::clock::LocalizeFormat & 4 & 1733 & 433 \\
-          ::ip::version & 1 & 1511 & 1511 \\
-          ::ip::ToString & 33 & 1504 & 45 \\
-          ::msgcat::mcload & 1 & 1495 & 1495 \\
-          ::ip::maskToInt & 33 & 1363 & 41 \\
-          ::fa\_loadconfig\_pattern & 4 & 1123 & 280 \\
-          ::auto\_import & 6 & 956 & 159 \\
-          ::CACHE\_PROC\_CHILD & 1 & 757 & 757 \\
-          ::critcl::runtime::MapPlatform & 1 & 726 & 726 \\
-          ::ip::IPv4? & 1 & 616 & 616 \\
-          ::http::init & 1 & 545 & 545 \\
-          ::tcl::clock::LoadTimeZoneFile & 1 & 527 & 527 \\
-          ::msgcat::LoadAll & 1 & 346 & 346 \\
-          ::slowbird::setup\_console & 1 & 335 & 335 \\
-          ::platform::generic & 1 & 312 & 312 \\
-          ::shuffle\_list & 1 & 307 & 307 \\
-          ::fa\_cat::basecat & 2 & 287 & 143 \\
-          ::tcl::clock::LoadZoneinfoFile & 1 & 251 & 251 \\
-          ::sha1::LoadAccelerator & 1 & 226 & 226 \\
-          ::ip::IPv6? & 1 & 212 & 212 \\
-          ::fa\_logger\_init & 1 & 205 & 205 \\
-          ::ip::Normalize4 & 1 & 192 & 192 \\
-          ::sha1::SwitchTo & 1 & 185 & 185 \\
-          ::sha2::KnownImplementations & 1 & 178 & 178 \\
-          ::tcl::clock::InitTZData & 1 & 169 & 169 \\
-          ::msgcat::PackageLocales & 2 & 133 & 66 \\
-          ::sha1::KnownImplementations & 1 & 129 & 129 \\
-          ::sha2::SwitchTo & 1 & 127 & 127 \\
-          ::msgcat::mcmset & 1 & 117 & 117 \\
-          ::struct::set::LoadAccelerator & 1 & 117 & 117 \\
-          ::sha2::LoadAccelerator & 1 & 100 & 100 \\
-          ::struct::set::SwitchTo & 1 & 100 & 100 \\
-          ::struct::set::KnownImplementations & 1 & 47 & 47 \\
-          ::\_\_critcl\_load\_\_ & 1 &  &  \\
-          ::itcl::\_find\_init & 1 &  &  \\
-          ::tcl::clock::Initialize & 1 &  & \\
+          \vdots & \vdots & \vdots & \vdots \\
           \bottomrule
           \caption{Slowbird Callee Timing}
           \label{tbl:slowbirdt}
@@ -693,16 +633,17 @@
 
     \subsubsection{Multi-Machine HyperFeed (MMHF)}{
       Multi-Machine HyperFeed is one of the core backend services used by FlightAware for analyzing, collating, and producing
-      flight data for use by FlightAware's downstream consumers. The single-machine version of the program was presented
-      by Zach Conn in 2016\autocite{hyperfeed}, and the multi-machine version expands on that original work.
+      flight data for use by FlightAware's downstream consumers. It expands on the single-machine version presented
+      by Zach Conn in 2016\autocite{hyperfeed}.
 
-      The decrease in cluster counts going from directed to undirected graphs observed for Slowbird was repeated for MMHF.
-      Because the counts of functions and clusters are significantly higher for MMHF than for Slowbird, the cluster sizes
-      are presented in sample histograms for a MMHF parent and a MMHF child in Fig~\ref{fig:mmhfhist}.
-      \begin{figure}[h]
+      The decrease in cluster counts from directed to undirected graphs was repeated for MMHF.
+      Because the counts of functions and clusters are much higher for MMHF than for Slowbird, the cluster sizes
+      are presented in sample histograms for a MMHF parent and a MMHF child in Figure~\ref{fig:mmhfhist}.
+
+      \begin{figure}[H]
         \begin{tikzpicture}
           \begin{loglogaxis}[
-              height=3in,
+              height=2in,
               width=\textwidth,
               ybar=3pt,
               ylabel=Clusters,
@@ -725,72 +666,67 @@
         \label{fig:mmhfhist}
       \end{figure}
 
-      Sample execution timings for a MMHF parent process are given in Table~\ref{tbl:mmhftp} with functions having less than 20 ms
-      of cumulative execution time omitted for space. A few exceptions are called out to denote TURTLES procs and functions whose names
-      forced a refactoring in the library to correct some initial assumptions about the validity of proc names.
-      {\footnotesize
-        \begin{longtable}{l r r r}
-          \toprule
-          Callee & Calls & $t_{total}$ ($\mu$s) & $t_{avg}$ ($\mu$s) \\
-          \midrule \\
-          \endhead \\
-          ::turtles::on\_proc\_enter & 58214 & 3264605 & 56 \\
-          ::turtles::on\_proc\_leave & 58208 & 3228439 & 55 \\
-          ::radarbox & 44354 & 1150864 & 25 \\
-          ::feedstream::initialize & 1 & 1038205 & 1038205 \\
-          ::feedstream::reload\_airport\_aliases\_and\_airline\_codes & 1 & 1014875 & 1014875 \\
-          ::tcl::clock::format & 990 & 496919 & 501 \\
-          ::tcl::clock::ParseClockFormatFormat & 54 & 326480 & 6045 \\
-          ::tcl::clock::ParseClockFormatFormat2 & 54 & 265048 & 4908 \\
-          ::tcl::clock::LocalizeFormat & 54 & 211535 & 3917 \\
-          ::msgcat::mc & 648 & 167107 & 257 \\
-          ::fa\_def\_facility & 4316 & 105557 & 24 \\
-          ::fa\_cat::setcat & 3004 & 77515 & 25 \\
-          ::load\_airline\_statics & 1 & 54691 & 54691 \\
-          ::sqlbird::select & 1 & 54440 & 54440 \\
-          ::tcl::clock::EnterLocale & 54 & 46442 & 860 \\
-          ::airframe::template & 27 & 43906 & 1626 \\
-          ::msgcat::mcpackagelocale & 55 & 39673 & 721 \\
-          ::logger & 57 & 32492 & 570 \\
-          ::airframe::tokenize & 54 & 30954 & 573 \\
-          ::msgcat::Load & 28 & 25376 & 906 \\
-          ::tcl::clock::scan & 38 & 22847 & 601 \\
-          ::another\_parsed\_flavor & 148 & 20061 & 135 \\
-          ::turtles::persistence::base::finalize & 1 & 17874 & 17874 \\
-          \vdots & \vdots & \vdots & \vdots \\
-          ::tcl::clock::formatproc'\%B'cs\_cz & 24 & 694 & 28 \\
-          \vdots & \vdots & \vdots & \vdots \\
-          ::tcl::clock::formatproc'\%a \%b \%d \%H:\%M:\%S \%Z \%Y'c & 1 & 103 & 103 \\
-          \vdots & \vdots & \vdots & \vdots \\
-          \bottomrule
-          \caption{MMHF Execution Timings}
-          \label{tbl:mmhftp}
-      \end{longtable}}
-      For a MMHF child process, the top cumulative executions are outlined in Table~\ref{tbl:mmhftc}. The remainder are omitted for space.
-      {\footnotesize
-        \begin{longtable}{l r r r}
-          \toprule
-          Callee & Calls & $t_{total}$ ($\mu$s) & $t_{avg}$ ($\mu$s) \\
-          \midrule \\
-          \endhead \\
-          ::consume\_rmq & 142 & 30512117 & 214874 \\
-          ::process\_parsed\_line & 142 & 30440310 & 214368 \\
-          ::really\_process\_parsed\_line & 142 & 29504325 & 207776 \\
-          ::supercatch & 142 & 26035885 & 183351 \\
-          ::handle\_position & 73 & 24797668 & 339694 \\
-          ::handle\_position\_after\_tita\_check & 69 & 23757255 & 344308 \\
-          ::handle\_vetted\_position & 69 & 23713692 & 343676 \\
-          ::process\_position\_for\_all\_pedigreed\_forks & 67 & 20238384 & 302065 \\
-          ::handle\_asdi\_adsb & 52 & 20047812 & 385534 \\
-          ::process\_position\_for\_one\_fork & 211 & 19930730 & 94458 \\
-          ::turtles::on\_proc\_leave & 141295 & 14090878 & 99 \\
-          ::turtles::on\_proc\_enter & 141303 & 13940794 & 98 \\
-          \vdots & \vdots & \vdots & \vdots \\
-          \bottomrule
-          \caption{MMHF Execution Timings}
-          \label{tbl:mmhftc}
-      \end{longtable}}
+      Sample execution timings of the most time-intensive functions for a MMHF parent process and child are given in Table~\ref{tbl:mmhftp}
+      and Table~\ref{tbl:mmhftc}, respectively. A few exceptions denote
+      TURTLES procs and functions whose names forced a refactoring of the proc name sanity check.
 
+
+      \paragraph{}{
+        {\footnotesize
+          \begin{longtable}{l r r r}
+            \toprule
+            Callee & Calls & $t_{total}$ ($\mu$s) & $t_{avg}$ ($\mu$s) \\
+            \midrule \\
+            \endhead \\
+            ::turtles::on\_proc\_enter & 58214 & 3264605 & 56 \\
+            ::turtles::on\_proc\_leave & 58208 & 3228439 & 55 \\
+            ::radarbox & 44354 & 1150864 & 25 \\
+            ::feedstream::initialize & 1 & 1038205 & 1038205 \\
+            ::feedstream::reload\_airport\_aliases\_and\_airline\_codes & 1 & 1014875 & 1014875 \\
+            ::tcl::clock::format & 990 & 496919 & 501 \\
+            ::tcl::clock::ParseClockFormatFormat & 54 & 326480 & 6045 \\
+            ::tcl::clock::ParseClockFormatFormat2 & 54 & 265048 & 4908 \\
+            ::tcl::clock::LocalizeFormat & 54 & 211535 & 3917 \\
+            ::msgcat::mc & 648 & 167107 & 257 \\
+            ::fa\_def\_facility & 4316 & 105557 & 24 \\
+            ::fa\_cat::setcat & 3004 & 77515 & 25 \\
+            ::load\_airline\_statics & 1 & 54691 & 54691 \\
+            ::sqlbird::select & 1 & 54440 & 54440 \\
+            \vdots & \vdots & \vdots & \vdots \\
+            ::turtles::persistence::base::finalize & 1 & 17874 & 17874 \\
+            ::tcl::clock::formatproc'\%B'cs\_cz & 24 & 694 & 28 \\
+            ::tcl::clock::formatproc'\%a \%b \%d \%H:\%M:\%S \%Z \%Y'c & 1 & 103 & 103 \\
+            \vdots & \vdots & \vdots & \vdots \\
+            \bottomrule \\
+            \caption{MMHF Parent Execution Timings}
+            \label{tbl:mmhftp}
+        \end{longtable}}
+      }
+      \paragraph{}{
+        {\footnotesize
+          \begin{longtable}{l r r r}
+            \toprule
+            Callee & Calls & $t_{total}$ ($\mu$s) & $t_{avg}$ ($\mu$s) \\
+            \midrule \\
+            \endhead \\
+            ::consume\_rmq & 142 & 30512117 & 214874 \\
+            ::process\_parsed\_line & 142 & 30440310 & 214368 \\
+            ::really\_process\_parsed\_line & 142 & 29504325 & 207776 \\
+            ::supercatch & 142 & 26035885 & 183351 \\
+            ::handle\_position & 73 & 24797668 & 339694 \\
+            ::handle\_position\_after\_tita\_check & 69 & 23757255 & 344308 \\
+            ::handle\_vetted\_position & 69 & 23713692 & 343676 \\
+            ::process\_position\_for\_all\_pedigreed\_forks & 67 & 20238384 & 302065 \\
+            ::handle\_asdi\_adsb & 52 & 20047812 & 385534 \\
+            ::process\_position\_for\_one\_fork & 211 & 19930730 & 94458 \\
+            ::turtles::on\_proc\_leave & 141295 & 14090878 & 99 \\
+            ::turtles::on\_proc\_enter & 141303 & 13940794 & 98 \\
+            \vdots & \vdots & \vdots & \vdots \\
+            \bottomrule
+            \caption{MMHF Child Execution Timings}
+            \label{tbl:mmhftc}
+        \end{longtable}}
+      }
       The count of unused procs for this parent process came to 6324. By contrast, a sample child process reported 5581 unused procs.
       The discrepancy is likely composed of the functions which the children use to perform the actual message processing whereas
       the parent simply manages the children.
@@ -809,8 +745,13 @@
   handlers would survive a fork boundary crossing, but these thankfully persisted. Otherwise, the fork safety mechanism would
   require a substantial increase in complexity to be of use.
 
-  The inconsistent behavior of forking across platforms was also an impediment. Sections of code that appeared to work on local
-  runs on MacOS did not when run on remote Linux or FreeBSD servers, and vice versa. Attempting to leverage signal trapping
+  The inconsistent behavior of forking across platforms was also an impediment. The fork safety mechanisms were tested on FreeBSD
+  and Linux, but the support for forking in Tcl on MacOS X has at least one outstanding issue that has remained open for years\autocite{c4e230f29b}.
+  The age of this bug and Apple's inexorable march toward locking down development on MacOS X (cf. the release notes for Catalina\autocite{scriptsonmac})
+  leave little hope for improvement in this regard. Consequently, the forking cases are skipped when building
+  and installing on MacOS X, and users of TURTLES should take this into consideration during development.
+  
+  Attempting to leverage signal trapping
   in multithreaded code raised similar issues\autocite{bounty32} when trying to instrument programs like Slowbird.
   There appears to be critical technical debt left outstanding with respect to Tcl's interfacing with the various operating systems
   on which it is available.
@@ -850,18 +791,16 @@
   in a set of multi-run tables.
 
   The TURTLES project has so far focused exclusively on proc tracing. Adding variable tracing would boost the usefulness of the
-  project since records of variable access can provide another window onto code patterns (or anti-patterns).
+  project since records of variable access can provide another window into code patterns (or anti-patterns) and memory usage.
 
   The issue of trace ID determinism has been resolved for the current scope and implementation. However, it would be beneficial
   if there were a descent path ID that traced an execution path from root call to leaf in order to provide more granular call graphs
   with greater confidence. This may require modification of the Tcl interpreter itself to ensure consistency and correctness.
 
-  One last avenue of future development is to research adding retroactive and automatic instrumentation. In some cases, it may not
-  be possible to bootstrap the TURTLES library early enough in a program's execution. Another use case would be attaching to
-  a running Tcl program and turning instrumentation on and off at will. Being able to retroactively load trace handlers for
-  existing commands would complete the execution picture. A similar benefit would arise from being able to transparently
-  load the instrumentation during thread spawns. These sorts of improvements would likely be the most difficult and complex to pursue
-  but potentially the most rewarding for the richness of information that could be collected.
+  One last avenue of future development is to research retroactive and automatic instrumentation. It may not always
+  be possible to bootstrap the TURTLES library early enough, or it may be desired to attach to a running Tcl program and
+  turn instrumentation on and off at will. Being able to retroactively load trace handlers for
+  existing commands and to transparently load instrumentation during thread spawns would complete the execution picture.
 
   The TURTLES project has been demonstrated to successfully trace and report execution behavior of different types of programs,
   even across fork boundaries. While there is a rich and daunting field of future work to pursue, the author hopes that this
