@@ -142,6 +142,6 @@ For more detailed information, please review the namespace documentation for
 ## Contact
 
 To report bugs or feature requests, please submit an issue under the github
-repo at https://github.flightaware.com/flightaware/turtles. For other inquiries,
+repo at https://github.com/flightaware/turtles. For other inquiries,
 please contact the author and maintainer, Michael Yantosca, via e-mail at
 michael.yantosca@flightaware.com.
